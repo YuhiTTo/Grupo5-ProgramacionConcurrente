@@ -1,0 +1,26 @@
+# Large dataset files (GitHub blocks files > 100MB; SPARCS CSV is ~947MB)
+dataset/*.csv
+!dataset/.gitkeep
+*.csv.zip
+*.csv.gz
+
+# Binaries and build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# IDE / System
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Office temporary files
+~$*.docx
+~$*.pptx
