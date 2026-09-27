@@ -1,358 +1,344 @@
 package main
 
 import (
-	"encoding/csv"
 	"fmt"
-	"io"
-	"os"
-	"regexp"
-	"strconv"
-	"strings"
+	"runtime"
+	"time"
 )
 
-const (
-	inputCSVPath  = "dataset/Hospital_Inpatient_Discharges_(SPARCS_De-Identified)__2022_20260913.csv"
-	outputCSVPath = "dataset/SPARCS_2022_clean_go.csv"
-)
-
-var (
-	firstIntegerRegex = regexp.MustCompile(`[0-9]+`)
-	los120PlusRegex   = regexp.MustCompile(`^120[[:space:]]*\+`)
-)
-
-var outputColumns = []string{
-	"Age Group",
-	"Length of Stay",
-	"LOS_120_plus",
-	"Type of Admission",
-	"APR Severity of Illness Code",
-	"Severity_unknown",
-	"APR MDC Description",
-	"APR Medical Surgical Description",
-	"Payment Typology 1",
-	"Emergency Department Indicator",
-	"Total Costs",
-}
-
-var requiredColumns = []string{
-	"Age Group",
-	"Length of Stay",
-	"Type of Admission",
-	"APR Severity of Illness Code",
-	"APR MDC Description",
-	"APR Medical Surgical Description",
-	"Payment Typology 1",
-	"Emergency Department Indicator",
-	"Total Costs",
-}
-
-type CleaningStats struct {
-	RowsRead                int
-	RowsKept                int
-	RowsDiscarded           int
-	InvalidTotalCostRows    int
-	InvalidLengthOfStayRows int
-	LengthOfStay120PlusRows int
-	UnknownSeverityRows     int
-}
-
-type CleanedRecord struct {
-	AgeGroup                     string
-	LengthOfStay                 int
-	IsLengthOfStay120Plus        bool
-	AdmissionType                string
-	SeverityCode                 int
-	IsSeverityUnknown            bool
-	APRMajorDiagnosticCategory   string
-	MedicalSurgicalCategory      string
-	PrimaryPaymentType           string
-	EmergencyDepartmentIndicator string
-	TotalCost                    float64
-}
+const cleanDatasetPath = "dataset/SPARCS_2022_clean_go.csv"
 
 func main() {
-	inputFile, err := os.Open(inputCSVPath)
+	fmt.Println(" PC2 - REGRESIÓN LINEAL")
+
+	datasetInfo, err := inspectCleanDataset(cleanDatasetPath)
+
 	if err != nil {
-		fmt.Println("Error al abrir el dataset:", err)
+		fmt.Println("Error:", err)
 		return
 	}
-	defer inputFile.Close()
 
-	csvReader := csv.NewReader(inputFile)
-	csvReader.FieldsPerRecord = -1
+	fmt.Printf("\nRegistros encontrados: %d\n", datasetInfo.RowCount)
+	fmt.Printf("Columnas encontradas:  %d\n", len(datasetInfo.Columns))
 
-	header, err := csvReader.Read()
+	fmt.Println("\nAnalizando categorías del dataset completo...")
+
+	preprocessingSummary, err :=
+		analyzePreprocessingSchema(cleanDatasetPath)
+
 	if err != nil {
-		fmt.Println("Error al leer la cabecera:", err)
+		fmt.Println("Error:", err)
 		return
 	}
 
-	columnIndex := buildColumnIndex(header)
-
-	if missingColumn := findMissingRequiredColumn(columnIndex); missingColumn != "" {
-		fmt.Printf("No se encontró la columna obligatoria: %s\n", missingColumn)
-		return
-	}
-
-	outputFile, err := os.Create(outputCSVPath)
-	if err != nil {
-		fmt.Println("Error al crear el archivo de salida:", err)
-		return
-	}
-	defer outputFile.Close()
-
-	csvWriter := csv.NewWriter(outputFile)
-	defer csvWriter.Flush()
-
-	if err := csvWriter.Write(outputColumns); err != nil {
-		fmt.Println("Error al escribir la cabecera:", err)
-		return
-	}
-
-	stats := CleaningStats{}
-
-	for {
-		rawRow, err := csvReader.Read()
-
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			fmt.Println("Error al leer una fila:", err)
-			return
-		}
-
-		stats.RowsRead++
-
-		cleanedRecord, discardReason, shouldKeep := cleanRecord(rawRow, columnIndex)
-
-		if !shouldKeep {
-			registerDiscard(&stats, discardReason)
-			continue
-		}
-
-		if cleanedRecord.IsLengthOfStay120Plus {
-			stats.LengthOfStay120PlusRows++
-		}
-
-		if cleanedRecord.IsSeverityUnknown {
-			stats.UnknownSeverityRows++
-		}
-
-		if err := csvWriter.Write(cleanedRecord.toCSVRow()); err != nil {
-			fmt.Println("Error al escribir una fila:", err)
-			return
-		}
-
-		stats.RowsKept++
-	}
-
-	csvWriter.Flush()
-
-	if err := csvWriter.Error(); err != nil {
-		fmt.Println("Error durante la escritura:", err)
-		return
-	}
-
-	printCleaningSummary(stats)
-}
-
-func cleanRecord(
-	rawRow []string,
-	columnIndex map[string]int,
-) (CleanedRecord, string, bool) {
-
-	valueOf := func(columnName string) string {
-		position := columnIndex[columnName]
-
-		if position < 0 || position >= len(rawRow) {
-			return ""
-		}
-
-		return rawRow[position]
-	}
-
-	totalCost, validTotalCost := parseCurrency(valueOf("Total Costs"))
-
-	if !validTotalCost || totalCost <= 0 {
-		return CleanedRecord{}, "invalid_total_cost", false
-	}
-
-	lengthOfStay, is120Plus, validLengthOfStay := parseLengthOfStay(
-		valueOf("Length of Stay"),
+	printCategorySummary(
+		"Age Group",
+		preprocessingSummary.AgeGroups,
 	)
 
-	if !validLengthOfStay || lengthOfStay <= 0 {
-		return CleanedRecord{}, "invalid_length_of_stay", false
-	}
-
-	severityCode, isSeverityUnknown := parseSeverityCode(
-		valueOf("APR Severity of Illness Code"),
+	printCategorySummary(
+		"Type of Admission",
+		preprocessingSummary.AdmissionTypes,
 	)
 
-	cleanedRecord := CleanedRecord{
-		AgeGroup: normalizeCategory(
-			valueOf("Age Group"),
-		),
-		LengthOfStay:          lengthOfStay,
-		IsLengthOfStay120Plus: is120Plus,
-		AdmissionType: normalizeCategory(
-			valueOf("Type of Admission"),
-		),
-		SeverityCode:      severityCode,
-		IsSeverityUnknown: isSeverityUnknown,
-		APRMajorDiagnosticCategory: normalizeCategory(
-			valueOf("APR MDC Description"),
-		),
-		MedicalSurgicalCategory: normalizeCategory(
-			valueOf("APR Medical Surgical Description"),
-		),
-		PrimaryPaymentType: normalizeCategory(
-			valueOf("Payment Typology 1"),
-		),
-		EmergencyDepartmentIndicator: normalizeCategory(
-			valueOf("Emergency Department Indicator"),
-		),
-		TotalCost: totalCost,
-	}
+	printCategorySummary(
+		"APR MDC Description",
+		preprocessingSummary.MajorDiagnosticGroups,
+	)
 
-	return cleanedRecord, "", true
-}
+	printCategorySummary(
+		"APR Medical Surgical Description",
+		preprocessingSummary.MedicalSurgicalGroups,
+	)
 
-func parseCurrency(rawValue string) (float64, bool) {
-	normalizedValue := strings.TrimSpace(rawValue)
-	normalizedValue = strings.ReplaceAll(normalizedValue, ",", "")
-	normalizedValue = strings.ReplaceAll(normalizedValue, "$", "")
+	printCategorySummary(
+		"Payment Typology 1",
+		preprocessingSummary.PaymentTypes,
+	)
 
-	if normalizedValue == "" {
-		return 0, false
-	}
+	printCategorySummary(
+		"Emergency Department Indicator",
+		preprocessingSummary.EmergencyIndicators,
+	)
 
-	parsedValue, err := strconv.ParseFloat(normalizedValue, 64)
+	fmt.Println()
+	fmt.Println(" RESUMEN DE PREPROCESAMIENTO")
+
+	fmt.Printf(
+		"Features numéricas finales esperadas: %d\n",
+		preprocessingSummary.FinalFeatureCount,
+	)
+
+	featureSchema, err :=
+		buildFeatureSchema(preprocessingSummary)
 
 	if err != nil {
-		return 0, false
+		fmt.Println("Error:", err)
+		return
 	}
 
-	return parsedValue, true
-}
+	fmt.Printf(
+		"\nFeatures configuradas: %d\n",
+		featureSchema.FeatureCount,
+	)
 
-func parseLengthOfStay(rawValue string) (int, bool, bool) {
-	normalizedValue := strings.TrimSpace(rawValue)
+	fmt.Println()
+	fmt.Println("Preparando Train/Test...")
 
-	is120Plus := los120PlusRegex.MatchString(normalizedValue)
-
-	numericPart := firstIntegerRegex.FindString(normalizedValue)
-
-	if numericPart == "" {
-		return 0, is120Plus, false
-	}
-
-	lengthOfStay, err := strconv.Atoi(numericPart)
-
-	if err != nil {
-		return 0, is120Plus, false
-	}
-
-	return lengthOfStay, is120Plus, true
-}
-
-func parseSeverityCode(rawValue string) (int, bool) {
-	normalizedValue := strings.TrimSpace(rawValue)
-
-	severityCode, err := strconv.Atoi(normalizedValue)
-
-	if err != nil || severityCode < 1 || severityCode > 4 {
-		return 0, true
-	}
-
-	return severityCode, false
-}
-
-func normalizeCategory(rawValue string) string {
-	normalizedValue := strings.TrimSpace(rawValue)
-
-	if normalizedValue == "" {
-		return "Unknown"
-	}
-
-	return normalizedValue
-}
-
-func buildColumnIndex(header []string) map[string]int {
-	columnIndex := make(map[string]int, len(header))
-
-	for position, rawColumnName := range header {
-		columnName := strings.TrimSpace(
-			strings.TrimPrefix(rawColumnName, "\ufeff"),
+	trainData, testData, err :=
+		loadAndSplitDataset(
+			cleanDatasetPath,
+			featureSchema,
+			datasetInfo.RowCount,
+			0.80,
+			42,
 		)
 
-		columnIndex[columnName] = position
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
 	}
-
-	return columnIndex
-}
-
-func findMissingRequiredColumn(columnIndex map[string]int) string {
-	for _, columnName := range requiredColumns {
-		if _, exists := columnIndex[columnName]; !exists {
-			return columnName
-		}
-	}
-
-	return ""
-}
-
-func registerDiscard(stats *CleaningStats, reason string) {
-	stats.RowsDiscarded++
-
-	switch reason {
-	case "invalid_total_cost":
-		stats.InvalidTotalCostRows++
-
-	case "invalid_length_of_stay":
-		stats.InvalidLengthOfStayRows++
-	}
-}
-
-func (record CleanedRecord) toCSVRow() []string {
-	return []string{
-		record.AgeGroup,
-		strconv.Itoa(record.LengthOfStay),
-		strconv.Itoa(boolToInt(record.IsLengthOfStay120Plus)),
-		record.AdmissionType,
-		strconv.Itoa(record.SeverityCode),
-		strconv.Itoa(boolToInt(record.IsSeverityUnknown)),
-		record.APRMajorDiagnosticCategory,
-		record.MedicalSurgicalCategory,
-		record.PrimaryPaymentType,
-		record.EmergencyDepartmentIndicator,
-		strconv.FormatFloat(record.TotalCost, 'f', -1, 64),
-	}
-}
-
-func boolToInt(value bool) int {
-	if value {
-		return 1
-	}
-
-	return 0
-}
-
-func printCleaningSummary(stats CleaningStats) {
-	fmt.Println()
-	fmt.Println(" SPARCS 2022 - RESULTADO DE LIMPIEZA PC1")
-
-	fmt.Printf("Registros leídos:                  %d\n", stats.RowsRead)
-	fmt.Printf("Registros conservados:             %d\n", stats.RowsKept)
-	fmt.Printf("Registros descartados:             %d\n", stats.RowsDiscarded)
-	fmt.Printf("  - Total Costs inválido/no > 0:   %d\n", stats.InvalidTotalCostRows)
-	fmt.Printf("  - Length of Stay inválido/no >0: %d\n", stats.InvalidLengthOfStayRows)
-	fmt.Printf("Casos Length of Stay = 120+:       %d\n", stats.LengthOfStay120PlusRows)
-	fmt.Printf("Casos de severidad desconocida:    %d\n", stats.UnknownSeverityRows)
 
 	fmt.Println()
-	fmt.Println("Dataset limpio generado en:")
-	fmt.Println(outputCSVPath)
+	fmt.Println(" DATASET PARA REGRESIÓN LINEAL")
+
+	fmt.Printf(
+		"Total: %d\n",
+		len(trainData)+len(testData),
+	)
+
+	fmt.Printf(
+		"Train: %d (%.2f%%)\n",
+		len(trainData),
+		float64(len(trainData))/
+			float64(len(trainData)+len(testData))*100,
+	)
+
+	fmt.Printf(
+		"Test:  %d (%.2f%%)\n",
+		len(testData),
+		float64(len(testData))/
+			float64(len(trainData)+len(testData))*100,
+	)
+
+	fmt.Printf(
+		"Features: %d\n",
+		featureSchema.FeatureCount,
+	)
+
+	fmt.Println()
+	fmt.Println("Calculando parámetros de escalamiento...")
+
+	scalingParameters, err :=
+		calculateScalingParameters(trainData)
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Println()
+	fmt.Println(" PARÁMETROS DE ESCALAMIENTO")
+
+	fmt.Printf(
+		"Length of Stay -> media: %.4f | std: %.4f\n",
+		scalingParameters.LengthOfStayMean,
+		scalingParameters.LengthOfStayStd,
+	)
+
+	fmt.Printf(
+		"Severity       -> media: %.4f | std: %.4f\n",
+		scalingParameters.SeverityMean,
+		scalingParameters.SeverityStd,
+	)
+
+	fmt.Printf(
+		"Total Costs    -> media: %.2f | std: %.2f\n",
+		scalingParameters.TargetMean,
+		scalingParameters.TargetStd,
+	)
+
+	applyScaling(
+		trainData,
+		scalingParameters,
+	)
+
+	applyScaling(
+		testData,
+		scalingParameters,
+	)
+
+	fmt.Println()
+	fmt.Println("Escalamiento aplicado correctamente.")
+	fmt.Println("Parámetros calculados únicamente con Train.")
+
+	const epochs = 100
+	const learningRate = 0.01
+
+	sequentialModel :=
+		newLinearRegression(
+			featureSchema.FeatureCount,
+		)
+
+	trainingStart :=
+		time.Now()
+
+	trainSequential(
+		sequentialModel,
+		trainData,
+		epochs,
+		learningRate,
+	)
+
+	sequentialDuration :=
+		time.Since(trainingStart)
+
+	fmt.Println()
+	fmt.Println("Entrenamiento secuencial completado.")
+
+	fmt.Printf(
+		"Tiempo de entrenamiento: %v\n",
+		sequentialDuration,
+	)
+
+	fmt.Println()
+	fmt.Println("Evaluando modelo sobre Test...")
+
+	sequentialMetrics :=
+		evaluateModel(
+			sequentialModel,
+			testData,
+			scalingParameters,
+		)
+
+	fmt.Println()
+	fmt.Println(" RESULTADOS SECUENCIALES - TEST")
+
+	fmt.Printf(
+		"MSE:  %.2f\n",
+		sequentialMetrics.MSE,
+	)
+
+	fmt.Printf(
+		"RMSE: $%.2f\n",
+		sequentialMetrics.RMSE,
+	)
+
+	fmt.Printf(
+		"MAE:  $%.2f\n",
+		sequentialMetrics.MAE,
+	)
+
+	fmt.Printf(
+		"R²:   %.6f\n",
+		sequentialMetrics.R2,
+	)
+
+	workerCount :=
+		runtime.NumCPU()
+
+	concurrentModel :=
+		newLinearRegression(
+			featureSchema.FeatureCount,
+		)
+
+	concurrentStart :=
+		time.Now()
+
+	trainConcurrent(
+		concurrentModel,
+		trainData,
+		epochs,
+		learningRate,
+		workerCount,
+	)
+
+	concurrentDuration :=
+		time.Since(concurrentStart)
+
+	fmt.Println()
+	fmt.Println("Entrenamiento concurrente completado.")
+
+	fmt.Printf(
+		"Tiempo de entrenamiento: %v\n",
+		concurrentDuration,
+	)
+
+	concurrentMetrics :=
+		evaluateModel(
+			concurrentModel,
+			testData,
+			scalingParameters,
+		)
+
+	fmt.Println()
+	fmt.Println(" RESULTADOS CONCURRENTES - TEST")
+
+	fmt.Printf(
+		"MSE:  %.2f\n",
+		concurrentMetrics.MSE,
+	)
+
+	fmt.Printf(
+		"RMSE: $%.2f\n",
+		concurrentMetrics.RMSE,
+	)
+
+	fmt.Printf(
+		"MAE:  $%.2f\n",
+		concurrentMetrics.MAE,
+	)
+
+	fmt.Printf(
+		"R²:   %.6f\n",
+		concurrentMetrics.R2,
+	)
+
+	speedup :=
+		sequentialDuration.Seconds() /
+			concurrentDuration.Seconds()
+
+	modelDifference :=
+		maxModelDifference(
+			sequentialModel,
+			concurrentModel,
+		)
+
+	fmt.Println()
+	fmt.Println(" COMPARACIÓN INICIAL")
+
+	fmt.Printf(
+		"CPU lógicas disponibles: %d\n",
+		runtime.NumCPU(),
+	)
+
+	fmt.Printf(
+		"Tiempo secuencial:  %v\n",
+		sequentialDuration,
+	)
+
+	fmt.Printf(
+		"Tiempo concurrente: %v\n",
+		concurrentDuration,
+	)
+
+	fmt.Printf(
+		"Speedup preliminar: %.4fx\n",
+		speedup,
+	)
+
+	fmt.Printf(
+		"Diferencia máxima entre modelos: %.12f\n",
+		modelDifference,
+	)
+
+	fmt.Printf(
+		"R² secuencial:  %.6f\n",
+		sequentialMetrics.R2,
+	)
+
+	fmt.Printf(
+		"R² concurrente: %.6f\n",
+		concurrentMetrics.R2,
+	)
 }
