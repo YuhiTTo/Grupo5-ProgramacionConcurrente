@@ -7,6 +7,7 @@ func trainSequential(
 	trainData []Sample,
 	epochs int,
 	learningRate float64,
+	verbose bool,
 ) {
 
 	if len(trainData) == 0 {
@@ -16,13 +17,17 @@ func trainSequential(
 	sampleCount :=
 		float64(len(trainData))
 
-	fmt.Println()
-	fmt.Println(" ENTRENAMIENTO SECUENCIAL")
+	if verbose {
+		fmt.Println()
+		fmt.Println("======================================")
+		fmt.Println(" ENTRENAMIENTO SECUENCIAL")
+		fmt.Println("======================================")
 
-	fmt.Printf("Épocas:        %d\n", epochs)
-	fmt.Printf("Learning rate: %.4f\n", learningRate)
-	fmt.Printf("Registros:     %d\n", len(trainData))
-	fmt.Printf("Features:      %d\n", len(model.Weights))
+		fmt.Printf("Épocas:        %d\n", epochs)
+		fmt.Printf("Learning rate: %.4f\n", learningRate)
+		fmt.Printf("Registros:     %d\n", len(trainData))
+		fmt.Printf("Features:      %d\n", len(model.Weights))
+	}
 
 	for epoch := 1; epoch <= epochs; epoch++ {
 
@@ -75,9 +80,10 @@ func trainSequential(
 			squaredErrorSum /
 				sampleCount
 
-		if epoch == 1 ||
-			epoch%10 == 0 ||
-			epoch == epochs {
+		if verbose &&
+			(epoch == 1 ||
+				epoch%10 == 0 ||
+				epoch == epochs) {
 
 			fmt.Printf(
 				"Época %2d/%d | MSE estandarizado: %.6f\n",

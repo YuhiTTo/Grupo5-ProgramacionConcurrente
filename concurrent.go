@@ -63,6 +63,7 @@ func trainConcurrent(
 	epochs int,
 	learningRate float64,
 	workerCount int,
+	verbose bool,
 ) {
 
 	if len(trainData) == 0 {
@@ -84,15 +85,19 @@ func trainConcurrent(
 		jobCount = len(trainData)
 	}
 
-	fmt.Println()
-	fmt.Println(" ENTRENAMIENTO CONCURRENTE")
+	if verbose {
+		fmt.Println()
+		fmt.Println("======================================")
+		fmt.Println(" ENTRENAMIENTO CONCURRENTE")
+		fmt.Println("======================================")
 
-	fmt.Printf("Épocas:        %d\n", epochs)
-	fmt.Printf("Learning rate: %.4f\n", learningRate)
-	fmt.Printf("Registros:     %d\n", len(trainData))
-	fmt.Printf("Features:      %d\n", len(model.Weights))
-	fmt.Printf("Workers:       %d\n", workerCount)
-	fmt.Printf("Jobs/época:    %d\n", jobCount)
+		fmt.Printf("Épocas:        %d\n", epochs)
+		fmt.Printf("Learning rate: %.4f\n", learningRate)
+		fmt.Printf("Registros:     %d\n", len(trainData))
+		fmt.Printf("Features:      %d\n", len(model.Weights))
+		fmt.Printf("Workers:       %d\n", workerCount)
+		fmt.Printf("Jobs/época:    %d\n", jobCount)
+	}
 
 	for epoch := 1; epoch <= epochs; epoch++ {
 
@@ -203,9 +208,10 @@ func trainConcurrent(
 			totalSquaredError /
 				sampleCount
 
-		if epoch == 1 ||
-			epoch%10 == 0 ||
-			epoch == epochs {
+		if verbose &&
+			(epoch == 1 ||
+				epoch%10 == 0 ||
+				epoch == epochs) {
 
 			fmt.Printf(
 				"Época %2d/%d | MSE estandarizado: %.6f\n",

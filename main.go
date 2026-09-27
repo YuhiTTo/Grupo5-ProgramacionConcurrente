@@ -188,6 +188,7 @@ func main() {
 		trainData,
 		epochs,
 		learningRate,
+		true,
 	)
 
 	sequentialDuration :=
@@ -251,6 +252,7 @@ func main() {
 		epochs,
 		learningRate,
 		workerCount,
+		true,
 	)
 
 	concurrentDuration :=
@@ -341,4 +343,102 @@ func main() {
 		"R² concurrente: %.6f\n",
 		concurrentMetrics.R2,
 	)
+
+	const benchmarkRuns = 7
+
+	fmt.Println()
+	fmt.Println("======================================")
+	fmt.Println(" BENCHMARK FORMAL")
+	fmt.Println("======================================")
+
+	fmt.Printf(
+		"Ejecuciones por configuración: %d\n",
+		benchmarkRuns,
+	)
+
+	fmt.Printf(
+		"Épocas por ejecución: %d\n",
+		epochs,
+	)
+
+	fmt.Printf(
+		"CPU lógicas disponibles: %d\n",
+		runtime.NumCPU(),
+	)
+
+	sequentialBenchmark :=
+		benchmarkSequential(
+			trainData,
+			featureSchema.FeatureCount,
+			epochs,
+			learningRate,
+			benchmarkRuns,
+		)
+
+	workerConfigurations :=
+		[]int{
+			1,
+			2,
+			4,
+			8,
+			12,
+			16,
+			24,
+			32,
+		}
+
+	benchmarkResults :=
+		make(
+			[]BenchmarkResult,
+			0,
+			len(workerConfigurations),
+		)
+
+	for _, workers := range workerConfigurations {
+
+		result :=
+			benchmarkConcurrent(
+				trainData,
+				featureSchema.FeatureCount,
+				epochs,
+				learningRate,
+				workers,
+				benchmarkRuns,
+			)
+
+		result.Speedup =
+			sequentialBenchmark.TrimmedMean.Seconds() /
+				result.TrimmedMean.Seconds()
+
+		result.Efficiency =
+			result.Speedup /
+				float64(workers)
+
+		benchmarkResults =
+			append(
+				benchmarkResults,
+				result,
+			)
+	}
+
+	fmt.Println()
+	fmt.Println("======================================")
+	fmt.Println(" RESULTADOS DEL BENCHMARK")
+	fmt.Println("======================================")
+
+	fmt.Printf(
+		"Secuencial | Media recortada: %v | Speedup: 1.0000x\n",
+		sequentialBenchmark.TrimmedMean,
+	)
+
+	for _, result := range benchmarkResults {
+
+		fmt.Printf(
+			"%2d workers | Media: %v | Speedup: %.4fx | Eficiencia: %.4f\n",
+			result.Workers,
+			result.TrimmedMean,
+			result.Speedup,
+			result.Efficiency,
+		)
+	}
 }
