@@ -17,8 +17,9 @@ Code is sound but all results go to stdout only; rubric points 3-6 (11/20 pts) l
 - [x] T1 CLI flags (`-mode`, `-runs`, `-epochs`, `-workers`, `-out`), keep `cpu-profile` compat, expose `-mode=clean`. Route: delegated.
 - [x] T2 Benchmark stats: warmup, percentage trimmed mean, stdev/median/min/max; seq-vs-conc equivalence check with tolerance; tests. Route: delegated.
 - [x] T3 Persist results (CSV + Markdown + environment metadata) and resources CSV + equilibrium point; tests. Route: delegated.
-- [ ] T4 Promela: LTL properties, variant config, run script, Promela<->Go mapping doc. Route: delegated.
-- [ ] T5 Docs `docs/pc2/*` + README update + evidence checklist. Route: delegated.
+- [x] T4 Promela: LTL properties, variant config, run script, Promela<->Go mapping doc. Route: delegated.
+- [x] T5 Docs `docs/pc2/*` + README update + evidence checklist. Route: delegated.
+- [x] T6 Review fixups: stats.go CV precision, report.go zero-speedup equilibrium guard, warmup-exclusion test. Route: delegated.
 
 ## Acceptance
 - `go vet ./...`, `go build ./...`, `go test ./...` green.
@@ -80,3 +81,126 @@ Code is sound but all results go to stdout only; rubric points 3-6 (11/20 pts) l
   - `go run . -h`: prints all 8 flags (`-dataset`, `-epochs`, `-mode`, `-out`, `-runs`, `-trim`, `-warmup`, `-workers`) with defaults matching `defaultConfig()`.
 - Not done here (out of scope / could not exercise): actually running `go run . -mode=benchmark` (or `all`/`resources`/`cpu-profile`) end-to-end, because `dataset/SPARCS_2022_clean_go.csv` is not present in this environment (gitignored, ~947MB source). The persistence code paths are covered by `report_test.go`/`resource_profile_test.go` against synthetic data instead; the team should run `go run . -mode=all` (or `-mode=benchmark`, `-mode=resources`, `-mode=cpu-profile`) once with the real dataset to generate the actual committable `results/` evidence for the rubric.
 - Commit: 72942c5.
+
+### T6 — Review fixups (done)
+- `stats.go`: `computeStats` now derives `CV` from the raw float64
+  nanosecond stddev/mean (new `stdDevNanos` helper, replacing
+  `stdDevDuration`) instead of from the already-truncated
+  `time.Duration` `StdDev`, avoiding a precision loss from int64
+  nanosecond quantization. `stats_test.go`'s `TestComputeStatsKnownInput`
+  CV delta tightened from 0.01 back to 0.001 (per review ask).
+  RED confirmed by widening the assertion first against the old code
+  (`CV = 1.4357142857142857, se esperaba ~1.4374722712498649`, delta
+  0.0018 > 0.001), then GREEN after the fix.
+- `report.go`: `findEquilibrium` now returns `found=false` (instead of
+  spuriously `workers=1, found=true`) when the max observed speedup is
+  `<= 0` (all-zero speedups). New test
+  `TestFindEquilibriumAllZeroSpeedups` (RED confirmed against the old
+  code, then GREEN).
+- `stats_test.go`: new `TestBenchmarkWarmupRunsAreExcluded` calls
+  `benchmarkSequential`/`benchmarkConcurrent` directly with a tiny
+  synthetic dataset (`buildSyntheticSamples(8, 1)` from
+  `equivalence_test.go`, same package) and asserts
+  `len(result.Times) == runs` with `warmup=2, runs=3` — confirms
+  warmup runs are excluded from the measured/persisted times. This
+  test passed on first run (behavior was already correct; it's a
+  regression guard, not a bugfix).
+- Verification: `gofmt -l stats.go stats_test.go report.go
+  report_test.go` clean (no output). `go vet ./...` clean. `go build
+  ./...` clean. `go test ./... -count=1` green (all tests, full repo).
+- Commit: 7f42c92.
+
+### T4 — Promela LTL + variant config + run scripts (done)
+- `promela/regression_workers.pml`: `NUM_WORKERS`/`NUM_JOBS` are now
+  `#ifndef`-guarded (compile with `-DNUM_WORKERS=n -DNUM_JOBS=m`);
+  channel sizes (`jobs`, `results`) made to scale with those macros
+  instead of hardcoded `7`/`4`. Added `byte in_update = 0` +
+  `bool updating = false` around the weights-update critical section
+  (wrapped in `atomic` blocks) and `bool done = false` set at the very
+  end — none of the original safety assertions were changed or
+  removed. Added `ltl safe_update { [] (updating -> result_count ==
+  NUM_JOBS) }`, `ltl termination { <> done }`, `ltl mutex { []
+  (in_update <= 1) }` at the end of the file.
+- New `promela/run_spin.sh` (bash, `chmod +x`) and
+  `promela/run_spin.ps1` (PowerShell): both take
+  `Workers`/`Jobs` args (default 3/4), run `spin -a -DNUM_WORKERS=...
+  -DNUM_JOBS=...`, then `gcc -DSAFETY` + `./pan -a` for the safety
+  check, then `gcc` (no `-DSAFETY`) + `./pan -a -N <name>` per LTL
+  property (`safe_update`, `termination`, `mutex`), saving each
+  output under `results/promela/w<N>_j<M>_{safety,ltl_<name>}.txt`.
+  Docker alternative documented as a trailing comment in both scripts
+  (no official team image exists yet).
+- **Not done / unverifiable here**: Spin and gcc are NOT installed in
+  this environment (confirmed via `which spin`/`which gcc`, both
+  absent). The `.pml` changes were reviewed manually for Promela
+  syntax (matching the original file's constructs: `atomic` blocks,
+  `ltl` declarations referencing only already-declared globals) but
+  were **not** compiled or run through `spin -a`/`pan`. The team must
+  run `promela/run_spin.sh` (or `.ps1`) locally, or via Docker, to
+  produce the actual verification evidence (including for the new LTL
+  properties and the 2/4 and 4/8 worker/job variants) — see
+  `docs/pc2/02-modelo-promela.md`.
+- Verification: `go vet ./...`/`go build ./...`/`go test ./... -count=1`
+  unaffected (no Go files touched by this task) — still green.
+- Commit: 4475297.
+
+### T5 — Docs `docs/pc2/*` + README update (done)
+- New `docs/pc2/README.md`: index + rubric checklist mapping each PC2
+  point (a-g from `Documentos/CC65_PCs_TP-202620.pdf`) to its
+  file(s)/evidence and status (`listo` for (a) safety-only/(c)/(g);
+  `pendiente: ejecutar con dataset real` for (b)/(d)/(f);
+  `pendiente: completar con valores medidos` for (e)).
+- New `docs/pc2/01-algoritmo-concurrente.md`: sequential vs. concurrent
+  algorithm with pseudocode, Mermaid pipeline diagram, partitioning
+  (`jobCount`/`chunkSize`, `concurrent.go:82,125-127`), why no Mutex is
+  needed (Workers only read weights + write private locals; only the
+  Coordinator writes after `wg.Wait()`), WaitGroup + buffered channels,
+  deterministic reduction by `JobID`, equivalence verification
+  (`equivalence.go`, tolerance `1e-9`) — all with `file:line` references.
+- New `docs/pc2/02-modelo-promela.md`: what's modeled, Promela↔Go
+  mapping table, safety assertions, the 3 new LTL properties, how to
+  run the new scripts, and the existing `verificacion_spin.txt` result
+  quoted (`errors: 0`, 143799 states, depth 120) with an explicit note
+  that it covers only the pre-LTL model.
+- New `docs/pc2/03-metodologia-benchmark.md`: runs/warmup/trimmed-mean
+  definitions, stats formulas (median, sample stddev, CV — including
+  the T6 precision fix), speedup/efficiency formulas, controls
+  (`runtime.GC()`, fixed seed 42), reproduction command, output files
+  list, and a results section with a template table (placeholder,
+  `TODO(equipo)` to paste `results/benchmark/speedup_summary.md` after
+  running with the real dataset).
+- New `docs/pc2/04-analisis-speedup-escalabilidad.md`: Amdahl's law,
+  Karp-Flatt serial-fraction estimator, expected behavior
+  (memory-bandwidth bound, per-epoch goroutine/channel spawn overhead,
+  sequential reduce/update, hyperthreading diminishing returns),
+  seq-vs-concurrent trade-offs table. All numeric conclusions marked
+  `> TODO(equipo): completar con los valores medidos` — no numbers
+  invented.
+- New `docs/pc2/05-recursos-punto-equilibrio.md`: `resources.csv`
+  columns, `cpu.prof` + `go tool pprof -top` usage, equilibrium point
+  definition as implemented (`findEquilibrium`, threshold 0.95 of max
+  speedup, including the T6 `found=false` fix for all-zero speedups)
+  and efficiency-drop definition (`findEfficiencyDrop`, threshold 0.5),
+  how to read them together, `TODO(equipo)` placeholders for measured
+  values.
+- New `docs/pc2/06-evidencias.md`: screenshot checklist per rubric
+  point with the exact command to run for each, saving into
+  `docs/pc2/evidencias/` (new dir, `.gitkeep` added since it's empty
+  until the team captures real screenshots).
+- Root `README.md` rewritten (was a 1-line stub): project summary,
+  dataset download links (from `dataset/Link del Dataset Original y
+  Limpio.txt`), full flags table (from `config.go`), modes explained,
+  example commands, tests (`go test ./...`, `-race` note re: cgo/gcc),
+  `results/` layout tree, Promela verification summary, links to
+  `docs/pc2/`.
+- Verification: `go vet ./...`/`go build ./...`/`go test ./...
+  -count=1` unaffected (docs-only) — still green. All doc `file:line`
+  references were cross-checked by reading the actual source during
+  writing (not guessed).
+- Not done / left as `TODO(equipo)` placeholders (per constraints — no
+  invented numbers): actual measured speedup/efficiency/equilibrium
+  values, actual resource-usage numbers, actual Karp-Flatt serial
+  fraction, actual pprof top-functions output, actual screenshots —
+  all require running with the real dataset (absent locally) and,
+  for Promela, a Spin/gcc installation (absent locally).
+- Commit: (this commit, see below).
