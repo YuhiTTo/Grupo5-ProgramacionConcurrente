@@ -87,10 +87,90 @@ Ambos se persisten en `results/benchmark/equilibrium.md`
 
 ## Resultados
 
-> TODO(equipo): correr `go run . -mode=all` (o `-mode=resources`) con
-> el dataset real y pegar aquí:
-> - El contenido de `results/resources/resources.csv` (o una tabla
->   resumida).
-> - El contenido de `results/benchmark/equilibrium.md`.
-> - La salida de `go tool pprof -top results/cpu/cpu.prof` (top 10
->   funciones).
+Valores oficiales del informe (`resource_profile`, 3 corridas por
+configuración, mismo entorno que `03-metodologia-benchmark.md`):
+
+| workers | PeakHeap MB | Alloc MB | Mallocs | GC |
+|---|---|---|---|---|
+| Secuencial (0) | 141.92 | 0.04 | 108 | 0 |
+| 1 | 142.15 | 0.27 | 1,109 | 0 |
+| 2 | 142.36 | 0.49 | 1,609 | 0 |
+| 4 | 142.81 | 0.93 | 2,609 | 0 |
+| 8 | 143.67 | 1.80 | 4,610 | 0 |
+| 12 | 144.54 | 2.67 | 6,625 | 0 |
+| 16 | 145.35 | 3.47 | 8,633 | 0 |
+| 24 | 147.07 | 5.19 | 12,622 | 0 |
+| 32 | 148.76 | 6.88 | 16,665 | 0 |
+
+`GCCount = 0` en todas las configuraciones: con 100 épocas el heap
+asignado por corrida no llega a disparar un ciclo de GC (el pico de
+heap crece de forma moderada y previsible con `workers`, de 141.92 MB
+a 148.76 MB entre secuencial y 32 workers, +4.8 %), consistente con lo
+esperado en la sección anterior (más buffers de gradientes locales y
+más entradas de canal por worker).
+
+### Punto de equilibrio (criterio del repositorio, `findEquilibrium`)
+
+- **Speedup máximo observado**: 4.8817x (`workers=16`).
+- **Umbral 95 %**: `4.8817 × 0.95 = 4.6376`.
+- **Menor `workers` que alcanza el umbral**: `workers=8` (4.7050x =
+  96.4 % del máximo) — es el primer valor, en orden ascendente, que
+  supera 4.6376.
+- **Caída de eficiencia (`findEfficiencyDrop`, umbral 0.5)**: la
+  eficiencia cae por debajo de 0.5 por primera vez en `workers=12`
+  (E=0.4019; `workers=8` todavía tiene E=0.5881 ≥ 0.5). Es decir,
+  `workers=8` es también el último punto con `Efficiency ≥ 0.5`.
+
+Bajo las reglas automáticas del repositorio, ambos criterios
+(`findEquilibrium` al 95 % y `findEfficiencyDrop` al 50 %) coinciden
+en señalar **`workers=8`** como el punto de equilibrio: es el menor
+`workers` que alcanza el 95 % del speedup máximo, y a la vez el mayor
+`workers` que todavía mantiene una eficiencia ≥ 0.5.
+
+### Comparación con la elección del informe (`workers=12`)
+
+El informe oficial eligió `workers=12` (coincide con el número de
+núcleos lógicos de la máquina de prueba) como punto de equilibrio,
+justificándolo así: pasar de 12 a 16 workers da solo +1.21 % de
+ganancia de tiempo (`(4.8817-4.8224)/4.8224 ≈ 0.0123`, informe
+redondea a +1.21 %) a cambio de +30 % en asignaciones/`mallocs`
+(`(8,633-6,625)/6,625 ≈ 0.303`), con la eficiencia cayendo de 0.4019 a
+0.3051. Ese argumento es válido como comparación **12 vs. 16**, pero
+no contempla el tramo **8 vs. 12**, donde el mismo patrón de
+diminishing returns ya es visible:
+
+| Cambio | Δ speedup | Δ mallocs | Δ eficiencia |
+|---|---|---|---|
+| 8 → 12 | +2.50 % (4.7050→4.8224) | +43.7 % (4,610→6,625) | 0.5881 → 0.4019 |
+| 12 → 16 | +1.21 % (4.8224→4.8817) | +30.3 % (6,625→8,633) | 0.4019 → 0.3051 |
+
+**Recomendación para el informe** (texto listo para pegar en
+`07-observaciones-informe.md`): presentar ambos criterios en vez de
+uno solo — `workers=8` como el **equilibrio eficiencia-óptima** (según
+las reglas automáticas del propio repositorio: 96.4 % del speedup pico
+con 31 % menos mallocs que 12 workers y E=0.588 ≥ 0.5), y
+`workers=12` como una **elección orientada a throughput** justificada
+explícitamente porque coincide con el número de CPUs lógicas de la
+máquina y compra un +2.5 % adicional de velocidad a cambio de más
+memoria/asignaciones. Esto no invalida la elección de 12 workers del
+informe; la complementa con el criterio cuantitativo que el propio
+código del repositorio ya implementa (`findEquilibrium`/
+`findEfficiencyDrop`, `report.go:314-359`).
+
+### Perfil de CPU (`cpu.prof`)
+
+El informe incluye evidencia visual de uso de CPU (Figura 11) para una
+corrida con `workers=12` y `epochs=3000`: ~92 % de uso de CPU en el
+Administrador de tareas de Windows, distribuido entre los 12 CPUs
+lógicos. No se dispone del archivo `cpu.prof` binario en el
+repositorio (no versionado, ver `.gitignore`) ni de la salida textual
+de `go tool pprof -top`; quien quiera reproducir el top de funciones
+por tiempo de CPU debe correr:
+
+```bash
+go run . -mode=cpu-profile -epochs 100
+go tool pprof -top results/cpu/cpu.prof
+```
+
+y pegar la salida real — no se inventa aquí una lista de funciones que
+no fue medida en este entorno.

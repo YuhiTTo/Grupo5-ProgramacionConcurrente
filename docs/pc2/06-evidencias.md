@@ -4,6 +4,29 @@ Guardar las capturas en `docs/pc2/evidencias/` con nombres
 descriptivos (p. ej. `01-quick-comparacion.png`). Este documento lista
 qué capturar y con qué comando generarlo.
 
+## Estado: evidencia ya existente en el informe oficial
+
+El equipo ya corrió el benchmark completo con el dataset real y las
+capturas correspondientes están incluidas como figuras en el informe
+entregado (`Documentos/CC65-PC2-202620-Grupo5.pdf`), no en este
+repositorio. Mapeo de figuras del informe → punto de rúbrica:
+
+| Figura del informe | Contenido | Punto de rúbrica |
+|---|---|---|
+| Fig. 1 | Corrida de limpieza del dataset | (b) — preparación de datos |
+| Fig. 3–5 | Simulación y verificación del modelo Promela (Spin) | (a) |
+| Fig. 9 | Gráfico de speedup vs. workers | (d) / (e) |
+| Fig. 10 | Ejecución secuencial vs. concurrente (tiempos) | (b) / (d) |
+| Fig. 11 | Uso de CPU (Administrador de tareas, 12 workers, ~92 %) | (f) |
+
+Estas capturas viven en el PDF del informe, que es la entrega oficial
+para el punto (b)/(d)/(f) de la rúbrica. Si el equipo quiere además
+tener las imágenes versionadas en el repositorio (para trazabilidad o
+para no depender solo del PDF), pueden exportarse a
+`docs/pc2/evidencias/` con los nombres descriptivos de la checklist de
+abajo — esto es opcional, no bloquea ningún punto de la rúbrica porque
+el PDF ya las contiene.
+
 ## (b) Go secuencial vs. concurrente
 
 - [ ] **Comparación rápida** (secuencial vs. concurrente, resultados
@@ -55,6 +78,13 @@ qué capturar y con qué comando generarlo.
       Capturar al menos: `errors: 0` de la verificación de seguridad,
       y el resultado de cada propiedad LTL (`safe_update`,
       `termination`, `mutex`).
+
+      Propiedades LTL (`safe_update`, `termination`, `mutex`) y
+      variantes 2/4, 3/4 y 4/4: verificadas con Spin 6.5.2 el
+      2026-09-28, todas con `errors: 0`. Salidas en
+      `results/promela/w<N>_j<M>_*.txt` y tabla resumen en
+      `02-modelo-promela.md` (sección "Resultados de la
+      verificación").
 - [ ] **Historial de gitflow**:
       ```bash
       git log --graph --oneline --all
