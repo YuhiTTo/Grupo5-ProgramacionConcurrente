@@ -8,19 +8,23 @@ import (
 )
 
 type ResourceUsage struct {
-	PeakHeapMB  float64
-	AllocatedMB float64
-	Mallocs     uint64
-	GCCount     uint32
+	ElapsedMS      float64
+	PeakHeapMB     float64
+	AllocatedMB    float64
+	Mallocs        uint64
+	GCCount        uint32
+	PeakGoroutines int
 }
 
 type ResourceProfileResult struct {
-	Name           string
-	Workers        int
-	PeakHeapMB     float64
-	AllocatedMB    float64
-	AverageMallocs float64
-	AverageGC      float64
+	Name                  string
+	Workers               int
+	AverageElapsedMS      float64
+	PeakHeapMB            float64
+	AllocatedMB           float64
+	AverageMallocs        float64
+	AverageGC             float64
+	AveragePeakGoroutines float64
 }
 
 func measureResourceUsage(run func()) ResourceUsage {
@@ -30,6 +34,7 @@ func measureResourceUsage(run func()) ResourceUsage {
 	runtime.ReadMemStats(&before)
 
 	peakHeap := before.HeapAlloc
+	peakGoroutines := runtime.NumGoroutine()
 
 	done := make(chan struct{})
 
@@ -54,13 +59,21 @@ func measureResourceUsage(run func()) ResourceUsage {
 					peakHeap = current.HeapAlloc
 				}
 
+				if goroutines := runtime.NumGoroutine(); goroutines > peakGoroutines {
+					peakGoroutines = goroutines
+				}
+
 			case <-done:
 				return
 			}
 		}
 	}()
 
+	start := time.Now()
+
 	run()
+
+	elapsed := time.Since(start)
 
 	close(done)
 	wg.Wait()
@@ -72,7 +85,13 @@ func measureResourceUsage(run func()) ResourceUsage {
 		peakHeap = after.HeapAlloc
 	}
 
+	if goroutines := runtime.NumGoroutine(); goroutines > peakGoroutines {
+		peakGoroutines = goroutines
+	}
+
 	return ResourceUsage{
+		ElapsedMS: elapsed.Seconds() * 1000,
+
 		PeakHeapMB: float64(peakHeap) /
 			(1024 * 1024),
 
@@ -85,6 +104,8 @@ func measureResourceUsage(run func()) ResourceUsage {
 
 		GCCount: after.NumGC -
 			before.NumGC,
+
+		PeakGoroutines: peakGoroutines,
 	}
 }
 
@@ -96,10 +117,12 @@ func profileSequentialResources(
 	runs int,
 ) ResourceProfileResult {
 
+	var elapsedSum float64
 	var peakHeapSum float64
 	var allocatedSum float64
 	var mallocSum uint64
 	var gcSum uint64
+	var peakGoroutinesSum int
 
 	for run := 1; run <= runs; run++ {
 
@@ -129,15 +152,19 @@ func profileSequentialResources(
 			usage.GCCount,
 		)
 
+		elapsedSum += usage.ElapsedMS
 		peakHeapSum += usage.PeakHeapMB
 		allocatedSum += usage.AllocatedMB
 		mallocSum += usage.Mallocs
 		gcSum += uint64(usage.GCCount)
+		peakGoroutinesSum += usage.PeakGoroutines
 	}
 
 	return ResourceProfileResult{
 		Name:    "Secuencial",
 		Workers: 0,
+
+		AverageElapsedMS: elapsedSum / float64(runs),
 
 		PeakHeapMB: peakHeapSum / float64(runs),
 
@@ -146,6 +173,8 @@ func profileSequentialResources(
 		AverageMallocs: float64(mallocSum) / float64(runs),
 
 		AverageGC: float64(gcSum) / float64(runs),
+
+		AveragePeakGoroutines: float64(peakGoroutinesSum) / float64(runs),
 	}
 }
 
@@ -158,10 +187,12 @@ func profileConcurrentResources(
 	runs int,
 ) ResourceProfileResult {
 
+	var elapsedSum float64
 	var peakHeapSum float64
 	var allocatedSum float64
 	var mallocSum uint64
 	var gcSum uint64
+	var peakGoroutinesSum int
 
 	for run := 1; run <= runs; run++ {
 
@@ -193,15 +224,19 @@ func profileConcurrentResources(
 			usage.GCCount,
 		)
 
+		elapsedSum += usage.ElapsedMS
 		peakHeapSum += usage.PeakHeapMB
 		allocatedSum += usage.AllocatedMB
 		mallocSum += usage.Mallocs
 		gcSum += uint64(usage.GCCount)
+		peakGoroutinesSum += usage.PeakGoroutines
 	}
 
 	return ResourceProfileResult{
 		Name:    "Concurrente",
 		Workers: workers,
+
+		AverageElapsedMS: elapsedSum / float64(runs),
 
 		PeakHeapMB: peakHeapSum / float64(runs),
 
@@ -210,5 +245,7 @@ func profileConcurrentResources(
 		AverageMallocs: float64(mallocSum) / float64(runs),
 
 		AverageGC: float64(gcSum) / float64(runs),
+
+		AveragePeakGoroutines: float64(peakGoroutinesSum) / float64(runs),
 	}
 }

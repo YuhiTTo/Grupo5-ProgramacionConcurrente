@@ -198,13 +198,36 @@ func runPipeline(config Config) {
 	const learningRate = 0.01
 
 	if config.Mode == "cpu-profile" {
-		runCPUProfile(
+		if err := runCPUProfile(
 			trainData,
 			featureSchema.FeatureCount,
 			learningRate,
-		)
+			config.OutDir,
+		); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
 
 		return
+	}
+
+	environmentPath, err := writeEnvironmentReport(
+		config.OutDir,
+		EnvironmentMeta{
+			TrainRows:    len(trainData),
+			FeatureCount: featureSchema.FeatureCount,
+			Epochs:       config.Epochs,
+			LearningRate: learningRate,
+			Runs:         config.Runs,
+			Warmup:       config.Warmup,
+			TrimFraction: config.TrimFraction,
+		},
+	)
+
+	if err != nil {
+		fmt.Println("Advertencia: no se pudo escribir environment.md:", err)
+	} else {
+		fmt.Printf("\nMetadatos de entorno guardados en: %s\n", environmentPath)
 	}
 
 	if config.Mode == "quick" || config.Mode == "all" {
@@ -538,6 +561,76 @@ func runBenchmarkMode(
 			result.Efficiency,
 		)
 	}
+
+	persistBenchmarkResults(config.OutDir, sequentialBenchmark, benchmarkResults)
+}
+
+// persistBenchmarkResults escribe la evidencia del benchmark formal
+// (corridas individuales, resumen CSV/Markdown y punto de
+// equilibrio) bajo <outDir>/benchmark/. Los fallos de persistencia se
+// reportan como advertencias y no abortan el benchmark, que ya
+// terminó de ejecutarse y de imprimir sus resultados en stdout.
+func persistBenchmarkResults(
+	outDir string,
+	sequentialBenchmark BenchmarkResult,
+	benchmarkResults []BenchmarkResult,
+) {
+
+	fmt.Println()
+
+	if path, err := writeBenchmarkRunsCSV(outDir, sequentialBenchmark, benchmarkResults); err != nil {
+		fmt.Println("Advertencia: no se pudo escribir benchmark_runs.csv:", err)
+	} else {
+		fmt.Println("Corridas individuales guardadas en:", path)
+	}
+
+	if path, err := writeSpeedupSummaryCSV(outDir, sequentialBenchmark, benchmarkResults); err != nil {
+		fmt.Println("Advertencia: no se pudo escribir speedup_summary.csv:", err)
+	} else {
+		fmt.Println("Resumen de speedup (CSV) guardado en:", path)
+	}
+
+	if path, err := writeSpeedupSummaryMarkdown(outDir, sequentialBenchmark, benchmarkResults); err != nil {
+		fmt.Println("Advertencia: no se pudo escribir speedup_summary.md:", err)
+	} else {
+		fmt.Println("Resumen de speedup (Markdown) guardado en:", path)
+	}
+
+	equilibriumWorkers, maxSpeedup, equilibriumFound :=
+		findEquilibrium(benchmarkResults, 0.95)
+
+	efficiencyDropWorkers, efficiencyDropFound :=
+		findEfficiencyDrop(benchmarkResults, 0.5)
+
+	if equilibriumFound {
+		fmt.Printf(
+			"Punto de equilibrio: %d workers (speedup máximo observado: %.4fx)\n",
+			equilibriumWorkers,
+			maxSpeedup,
+		)
+	} else {
+		fmt.Println("Punto de equilibrio: no se encontró con los datos disponibles.")
+	}
+
+	if efficiencyDropFound {
+		fmt.Printf(
+			"La eficiencia cae por debajo de 0.50 a partir de: %d workers\n",
+			efficiencyDropWorkers,
+		)
+	}
+
+	if path, err := writeEquilibriumMarkdown(
+		outDir,
+		equilibriumWorkers,
+		maxSpeedup,
+		equilibriumFound,
+		efficiencyDropWorkers,
+		efficiencyDropFound,
+	); err != nil {
+		fmt.Println("Advertencia: no se pudo escribir equilibrium.md:", err)
+	} else {
+		fmt.Println("Punto de equilibrio (Markdown) guardado en:", path)
+	}
 }
 
 func runResourcesMode(
@@ -624,5 +717,13 @@ func runResourcesMode(
 			result.AverageMallocs,
 			result.AverageGC,
 		)
+	}
+
+	fmt.Println()
+
+	if path, err := writeResourcesCSV(config.OutDir, resourceResults); err != nil {
+		fmt.Println("Advertencia: no se pudo escribir resources.csv:", err)
+	} else {
+		fmt.Println("Perfil de recursos guardado en:", path)
 	}
 }
