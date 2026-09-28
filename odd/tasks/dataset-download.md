@@ -47,3 +47,13 @@ Datasets (clean 244,031,060 B; raw 947,122,735 B) live on Google Drive and are g
 - Root `README.md`: Dataset section now leads with `go run . -mode=download` (+ `-download=raw|all`, `-no-download`) and links to `dataset/README.md` for detail; flags table gained `-download` and `-no-download`; Modos list gained `download`.
 - No code changes in this task; full suite re-verified after the doc edits: `gofmt -l` clean (touched files only — pre-existing CRLF-flagged files from D1 untouched), `go vet ./...` clean, `go build ./...` clean, `go test ./... -count=1` PASS.
 - Commit: (recorded after commit below)
+
+## End-to-end check (parent)
+- `go run . -mode=download` downloaded 244,031,060 B; SHA-256 cf2d180c...078e3c matches the pin; second run printed "ya existe y está verificado" (no download); `git check-ignore` confirms `dataset/*.csv` rule; `git status` clean.
+
+## Review outcome (RDD)
+- Whole-branch candidate (acf470c..HEAD) stopped with `lens_context_budget_exceeded`; re-scoped to 6f34cfa..59158a6.
+- Slice 6f34cfa..59158a6: medium risk, consent granted, 1 lens (reliability) -> approved, acknowledged (lineage review-b5e4a82a907f96fa). Non-blocking follow-ups:
+  - R3-3: no idle-read timeout once the body streams; a stalled connection could hang the download (add a per-read deadline / progress watchdog).
+  - R3-1/R3-2: runDownloadTargets hardcodes client/allowlist; auto-download success path untested at main level.
+  - R3-4: data modes now download by default when the clean CSV is missing (documented; `-no-download` opts out).
