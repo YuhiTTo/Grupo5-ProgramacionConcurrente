@@ -13,7 +13,8 @@
 # Uso:
 #   ./run_spin.sh                              # NUM_WORKERS=3, NUM_JOBS=4 (defaults del modelo)
 #   ./run_spin.sh 2 4                          # NUM_WORKERS=2, NUM_JOBS=4
-#   ./run_spin.sh 4 8                          # NUM_WORKERS=4, NUM_JOBS=8
+#   ./run_spin.sh 4 4                          # NUM_WORKERS=4, NUM_JOBS=4
+#   (4 8 supera 34M estados / 3 GB sin terminar; ver docs/pc2/02)
 #
 # Salidas guardadas en results/promela/, con nombres que
 # incluyen la variante NUM_WORKERS/NUM_JOBS, p. ej.:
@@ -36,6 +37,15 @@ mkdir -p "$OUT_DIR"
 
 PREFIX="w${WORKERS}_j${JOBS}"
 
+# pan termina con código 0 aunque encuentre violaciones; el
+# resultado real está en la línea "errors: N" de su salida.
+require_no_errors() {
+    if ! grep -qE "errors: 0([^0-9]|$)" "$1"; then
+        echo "FALLO: $1 no reporta 'errors: 0'" >&2
+        exit 1
+    fi
+}
+
 echo "== Verificando NUM_WORKERS=${WORKERS} NUM_JOBS=${JOBS} =="
 
 pushd "$WORK_DIR" > /dev/null
@@ -50,6 +60,7 @@ spin -a -DNUM_WORKERS="${WORKERS}" -DNUM_JOBS="${JOBS}" "$MODEL"
 #    esta corrida sea un chequeo puro de seguridad.
 gcc -DSAFETY -DNOCLAIM -o pan pan.c
 ./pan | tee "$OUT_DIR/${PREFIX}_safety.txt"
+require_no_errors "$OUT_DIR/${PREFIX}_safety.txt"
 
 # 3) Compilar (sin -DSAFETY) y correr cada propiedad LTL
 #    por separado con -N <nombre>. -a mantiene la búsqueda
@@ -60,6 +71,7 @@ gcc -o pan pan.c
 for ltl_name in safe_update termination mutex; do
     echo "-- LTL: ${ltl_name} --"
     ./pan -a -N "${ltl_name}" | tee "$OUT_DIR/${PREFIX}_ltl_${ltl_name}.txt"
+    require_no_errors "$OUT_DIR/${PREFIX}_ltl_${ltl_name}.txt"
 done
 
 popd > /dev/null

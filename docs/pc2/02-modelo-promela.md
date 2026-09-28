@@ -101,14 +101,14 @@ se escribió este documento — ver nota abajo).
 # Linux/macOS/WSL/Git Bash
 ./promela/run_spin.sh              # NUM_WORKERS=3 NUM_JOBS=4 (defaults del modelo)
 ./promela/run_spin.sh 2 4          # NUM_WORKERS=2 NUM_JOBS=4
-./promela/run_spin.sh 4 8          # NUM_WORKERS=4 NUM_JOBS=8
+./promela/run_spin.sh 4 4          # NUM_WORKERS=4 NUM_JOBS=4
 ```
 
 ```powershell
 # Windows PowerShell (con spin/gcc en el PATH, p. ej. vía MSYS2)
 ./promela/run_spin.ps1
 ./promela/run_spin.ps1 -Workers 2 -Jobs 4
-./promela/run_spin.ps1 -Workers 4 -Jobs 8
+./promela/run_spin.ps1 -Workers 4 -Jobs 4
 ```
 
 Cada corrida hace, por variante:
@@ -124,19 +124,53 @@ Los resultados se guardan en `results/promela/` con nombres
 
 ### Alternativa con Docker
 
-Documentada como comentario al final de `run_spin.sh`/`run_spin.ps1`:
-correr una imagen con Spin + gcc preinstalados (por ejemplo, una
-imagen Debian/Ubuntu con `apt-get install -y spin gcc`) montando el
-repositorio y ejecutando `promela/run_spin.sh` dentro del contenedor.
-No existe todavía una imagen oficial del equipo.
+Es la forma en que se generaron los resultados de abajo (Windows sin
+Spin/gcc instalados, con Docker Desktop):
 
-## Qué queda pendiente
+```bash
+docker run --rm -v "$PWD":/work -w /work debian:stable-slim bash -ec \
+  'apt-get update -qq && apt-get install -y -qq spin gcc libc6-dev && \
+   for v in "3 4" "2 4" "4 4"; do bash promela/run_spin.sh $v; done'
+```
 
-- Ejecutar `run_spin.sh`/`run_spin.ps1` para las 3 variantes
-  sugeridas (defaults 3/4, 2/4, 4/8) y las 3 propiedades LTL, y
-  commitear los `.txt` resultantes en `results/promela/`.
-- Pegar en este documento (o en `06-evidencias.md`) el resumen de
-  cada corrida (estados explorados, errores) una vez generado.
-- El resultado existente (`verificacion_spin.txt`) cubre solo las
-  aserciones de seguridad sobre el modelo previo a estos cambios; no
-  cubre `safe_update`/`termination`/`mutex`, que son nuevas.
+## Resultados de la verificación (Spin 6.5.2)
+
+Ejecutado el 2026-09-28 con Spin 6.5.2 (Debian `stable-slim`, gcc).
+Salidas completas en `results/promela/w<N>_j<M>_*.txt`.
+
+| Variante (workers/jobs) | Corrida | Estados almacenados | Transiciones | Profundidad | Errores |
+|---|---|---:|---:|---:|---:|
+| 2/4 | seguridad (`-DSAFETY -DNOCLAIM`) | 12,358 | 18,374 | 114 | 0 |
+| 2/4 | LTL `safe_update` | 12,358 | 18,375 | 220 | 0 |
+| 2/4 | LTL `termination` | 12,311 | 48,834 | 217 | 0 |
+| 2/4 | LTL `mutex` | 12,358 | 18,375 | 220 | 0 |
+| 3/4 | seguridad | 145,563 | 244,504 | 123 | 0 |
+| 3/4 | LTL `safe_update` | 145,563 | 244,505 | 235 | 0 |
+| 3/4 | LTL `termination` | 145,218 | 632,301 | 232 | 0 |
+| 3/4 | LTL `mutex` | 145,563 | 244,505 | 235 | 0 |
+| 4/4 | seguridad | 1,080,202 | 1,967,768 | 132 | 0 |
+| 4/4 | LTL `safe_update` | 1,080,202 | 1,967,769 | 250 | 0 |
+| 4/4 | LTL `termination` | 1,078,409 | 5,003,428 | 247 | 0 |
+| 4/4 | LTL `mutex` | 1,080,202 | 1,967,769 | 250 | 0 |
+
+Conclusión: en las tres variantes, la búsqueda exhaustiva no encontró
+violaciones de aserciones, estados finales inválidos (deadlock) ni
+contraejemplos para `safe_update`, `termination` (verificada con
+búsqueda de ciclos de aceptación, `-a`) y `mutex`. El modelo es libre
+de condición de carrera sobre los pesos: solo el Coordinator entra a la
+sección de actualización, y lo hace únicamente después de recibir los
+`NUM_JOBS` resultados.
+
+### Límite de explosión de estados
+
+Se intentó también la variante 4/8. La corrida de seguridad superó
+34 millones de estados almacenados y 3.2 GB de memoria sin terminar
+(unos 214 s), así que se detuvo y se reemplazó por 4/4. El espacio de
+estados crece de forma combinatoria con el número de jobs que están
+en tránsito en los canales. Por eso la verificación exhaustiva se hace
+con N pequeño: basta para cubrir todos los entrelazados de la lógica
+de sincronización, que es independiente del tamaño real del dataset.
+
+`verificacion_spin.txt` y `simulacion_spin.txt` se conservan como
+evidencia de la corrida original de la PC2 (modelo previo a las
+propiedades LTL; 143,799 estados y 0 errores).

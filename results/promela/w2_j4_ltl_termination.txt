@@ -1,0 +1,37 @@
+pan: ltl formula termination
+
+(Spin Version 6.5.2 -- 6 December 2019)
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	+ (termination)
+	assertion violations	+ (if within scope of claim)
+	acceptance   cycles 	+ (fairness disabled)
+	invalid end states	- (disabled by never claim)
+
+State-vector 72 byte, depth reached 217, errors: 0
+    12311 states, stored (24622 visited)
+    24212 states, matched
+    48834 transitions (= visited+matched)
+       18 atomic steps
+hash conflicts:         6 (resolved)
+
+Stats on memory usage (in Megabytes):
+    1.174	equivalent memory usage for states (stored*(State-vector + overhead))
+    1.161	actual memory usage for states (compression: 98.91%)
+         	state-vector as stored = 71 byte + 28 byte overhead
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  129.608	total actual memory usage
+
+
+unreached in proctype Worker
+	(0 of 15 states)
+unreached in init
+	(0 of 63 states)
+unreached in claim termination
+	_spin_nvr.tmp:15, state 6, "-end-"
+	(1 of 6 states)
+
+pan: elapsed time 0.04 seconds
+pan: rate    615550 states/second

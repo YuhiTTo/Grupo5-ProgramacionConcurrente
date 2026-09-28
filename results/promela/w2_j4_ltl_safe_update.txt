@@ -1,0 +1,37 @@
+pan: ltl formula safe_update
+
+(Spin Version 6.5.2 -- 6 December 2019)
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	+ (safe_update)
+	assertion violations	+ (if within scope of claim)
+	acceptance   cycles 	+ (fairness disabled)
+	invalid end states	- (disabled by never claim)
+
+State-vector 72 byte, depth reached 220, errors: 0
+    12358 states, stored
+     6017 states, matched
+    18375 transitions (= stored+matched)
+        9 atomic steps
+hash conflicts:         0 (resolved)
+
+Stats on memory usage (in Megabytes):
+    1.179	equivalent memory usage for states (stored*(State-vector + overhead))
+    1.161	actual memory usage for states (compression: 98.53%)
+         	state-vector as stored = 71 byte + 28 byte overhead
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  129.608	total actual memory usage
+
+
+unreached in proctype Worker
+	(0 of 15 states)
+unreached in init
+	(0 of 63 states)
+unreached in claim safe_update
+	_spin_nvr.tmp:8, state 10, "-end-"
+	(1 of 10 states)
+
+pan: elapsed time 0.02 seconds
+pan: rate    617900 states/second

@@ -1,0 +1,37 @@
+pan: ltl formula mutex
+
+(Spin Version 6.5.2 -- 6 December 2019)
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	+ (mutex)
+	assertion violations	+ (if within scope of claim)
+	acceptance   cycles 	+ (fairness disabled)
+	invalid end states	- (disabled by never claim)
+
+State-vector 88 byte, depth reached 235, errors: 0
+   145563 states, stored
+    98942 states, matched
+   244505 transitions (= stored+matched)
+       12 atomic steps
+hash conflicts:       264 (resolved)
+
+Stats on memory usage (in Megabytes):
+   16.103	equivalent memory usage for states (stored*(State-vector + overhead))
+   12.298	actual memory usage for states (compression: 76.37%)
+         	state-vector as stored = 61 byte + 28 byte overhead
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  140.741	total actual memory usage
+
+
+unreached in proctype Worker
+	(0 of 15 states)
+unreached in init
+	(0 of 63 states)
+unreached in claim mutex
+	_spin_nvr.tmp:24, state 10, "-end-"
+	(1 of 10 states)
+
+pan: elapsed time 0.28 seconds
+pan: rate 519867.86 states/second
