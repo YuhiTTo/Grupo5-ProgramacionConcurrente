@@ -322,6 +322,10 @@ func findEquilibrium(results []BenchmarkResult, threshold float64) (workers int,
 		}
 	}
 
+	if maxSpeedup <= 0 {
+		return 0, maxSpeedup, false
+	}
+
 	target := threshold * maxSpeedup
 
 	sorted := append([]BenchmarkResult(nil), results...)

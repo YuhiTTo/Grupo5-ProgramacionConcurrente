@@ -53,12 +53,17 @@ func computeStats(times []time.Duration, trimFraction float64) DurationStats {
 
 	mean := meanDuration(sorted)
 	median := medianDuration(sorted)
-	stdDev := stdDevDuration(sorted, mean)
+	stdDevNs := stdDevNanos(sorted, mean)
+	stdDev := time.Duration(stdDevNs)
 
+	// CV se calcula a partir de la desviación estándar y la media en
+	// punto flotante (nanosegundos), ANTES de truncar stdDev a
+	// time.Duration (int64), para no perder precisión por esa
+	// cuantización a nanosegundos enteros.
 	var cv float64
 
 	if mean != 0 {
-		cv = stdDev.Seconds() / mean.Seconds()
+		cv = stdDevNs / float64(mean)
 	}
 
 	return DurationStats{
@@ -110,10 +115,10 @@ func medianDuration(sorted []time.Duration) time.Duration {
 	return (sorted[n/2-1] + sorted[n/2]) / 2
 }
 
-// stdDevDuration calcula la desviación estándar MUESTRAL (n-1 en el
-// denominador). Con menos de 2 mediciones no hay variabilidad que
-// estimar y se retorna 0.
-func stdDevDuration(times []time.Duration, mean time.Duration) time.Duration {
+// stdDevNanos calcula la desviación estándar MUESTRAL (n-1 en el
+// denominador) en nanosegundos, como float64 sin truncar. Con menos
+// de 2 mediciones no hay variabilidad que estimar y se retorna 0.
+func stdDevNanos(times []time.Duration, mean time.Duration) float64 {
 	n := len(times)
 
 	if n < 2 {
@@ -131,5 +136,5 @@ func stdDevDuration(times []time.Duration, mean time.Duration) time.Duration {
 
 	variance := sumSquaredDiff / float64(n-1)
 
-	return time.Duration(math.Sqrt(variance))
+	return math.Sqrt(variance)
 }

@@ -103,13 +103,12 @@ func TestComputeStatsKnownInput(t *testing.T) {
 		t.Errorf("StdDev = %v, se esperaba ~%v ns", stats.StdDev, expectedStdDev)
 	}
 
-	// stats.StdDev se trunca a un time.Duration (int64 ns), por lo
-	// que el CV derivado pierde algo de precisión frente al valor
-	// calculado directamente en punto flotante; toleramos esa
-	// cuantización con un delta más amplio.
+	// CV se calcula a partir de la desviación estándar y la media en
+	// punto flotante (float64), antes de truncar a time.Duration, para
+	// no perder precisión por la cuantización a enteros de nanosegundos.
 	expectedCV := expectedStdDev / 280.0
 
-	if math.Abs(stats.CV-expectedCV) > 0.01 {
+	if math.Abs(stats.CV-expectedCV) > 0.001 {
 		t.Errorf("CV = %v, se esperaba ~%v", stats.CV, expectedCV)
 	}
 }
@@ -137,5 +136,31 @@ func TestComputeStatsEmpty(t *testing.T) {
 
 	if stats != (DurationStats{}) {
 		t.Errorf("se esperaba DurationStats vacío, obtuvo %+v", stats)
+	}
+}
+
+// TestBenchmarkWarmupRunsAreExcluded verifica que las corridas de
+// calentamiento (warmup) NO se incluyan entre las mediciones oficiales:
+// con warmup=2 y runs=3, BenchmarkResult.Times debe tener exactamente
+// 3 elementos (len(Times) == runs), no 5.
+func TestBenchmarkWarmupRunsAreExcluded(t *testing.T) {
+	samples := buildSyntheticSamples(8, 1)
+
+	const featureCount = 5
+	const epochs = 2
+	const learningRate = 0.01
+	const runs = 3
+	const warmup = 2
+
+	seqResult := benchmarkSequential(samples, featureCount, epochs, learningRate, runs, warmup, 0.1)
+
+	if len(seqResult.Times) != runs {
+		t.Errorf("benchmarkSequential: len(Times) = %d, se esperaba %d (runs, excluyendo warmup)", len(seqResult.Times), runs)
+	}
+
+	concResult := benchmarkConcurrent(samples, featureCount, epochs, learningRate, 2, runs, warmup, 0.1)
+
+	if len(concResult.Times) != runs {
+		t.Errorf("benchmarkConcurrent: len(Times) = %d, se esperaba %d (runs, excluyendo warmup)", len(concResult.Times), runs)
 	}
 }

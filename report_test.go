@@ -249,6 +249,24 @@ func TestFindEquilibriumEmpty(t *testing.T) {
 	}
 }
 
+func TestFindEquilibriumAllZeroSpeedups(t *testing.T) {
+	results := []BenchmarkResult{
+		{Workers: 1, Speedup: 0},
+		{Workers: 2, Speedup: 0},
+		{Workers: 4, Speedup: 0},
+	}
+
+	workers, maxSpeedup, found := findEquilibrium(results, 0.95)
+
+	if found {
+		t.Errorf("no se esperaba encontrar un punto de equilibrio con speedup máximo <= 0 (workers=%d)", workers)
+	}
+
+	if maxSpeedup != 0 {
+		t.Errorf("maxSpeedup = %v, se esperaba 0", maxSpeedup)
+	}
+}
+
 func TestFindEfficiencyDrop(t *testing.T) {
 	results := []BenchmarkResult{
 		{Workers: 1, Efficiency: 1.0},
