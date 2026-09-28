@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"runtime"
@@ -10,9 +12,29 @@ import (
 const cleanDatasetPath = "dataset/SPARCS_2022_clean_go.csv"
 
 func main() {
+	config, err := parseConfig(os.Args[1:])
+
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			os.Exit(0)
+		}
+
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+
+	if config.Mode == "clean" {
+		runCleaning()
+		return
+	}
+
+	runPipeline(config)
+}
+
+func runPipeline(config Config) {
 	fmt.Println(" PC2 - REGRESIÓN LINEAL")
 
-	datasetInfo, err := inspectCleanDataset(cleanDatasetPath)
+	datasetInfo, err := inspectCleanDataset(config.DatasetPath)
 
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -25,7 +47,7 @@ func main() {
 	fmt.Println("\nAnalizando categorías del dataset completo...")
 
 	preprocessingSummary, err :=
-		analyzePreprocessingSchema(cleanDatasetPath)
+		analyzePreprocessingSchema(config.DatasetPath)
 
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -88,7 +110,7 @@ func main() {
 
 	trainData, testData, err :=
 		loadAndSplitDataset(
-			cleanDatasetPath,
+			config.DatasetPath,
 			featureSchema,
 			datasetInfo.RowCount,
 			0.80,
@@ -173,11 +195,9 @@ func main() {
 	fmt.Println("Escalamiento aplicado correctamente.")
 	fmt.Println("Parámetros calculados únicamente con Train.")
 
-	const epochs = 100
 	const learningRate = 0.01
 
-	if len(os.Args) > 1 && os.Args[1] == "cpu-profile" {
-
+	if config.Mode == "cpu-profile" {
 		runCPUProfile(
 			trainData,
 			featureSchema.FeatureCount,
@@ -186,6 +206,45 @@ func main() {
 
 		return
 	}
+
+	if config.Mode == "quick" || config.Mode == "all" {
+		runQuickComparison(
+			trainData,
+			testData,
+			featureSchema,
+			scalingParameters,
+			config,
+			learningRate,
+		)
+	}
+
+	if config.Mode == "benchmark" || config.Mode == "all" {
+		runBenchmarkMode(
+			trainData,
+			featureSchema,
+			config,
+			learningRate,
+		)
+	}
+
+	if config.Mode == "resources" || config.Mode == "all" {
+		runResourcesMode(
+			trainData,
+			featureSchema,
+			config,
+			learningRate,
+		)
+	}
+}
+
+func runQuickComparison(
+	trainData []Sample,
+	testData []Sample,
+	featureSchema FeatureSchema,
+	scalingParameters ScalingParameters,
+	config Config,
+	learningRate float64,
+) {
 
 	sequentialModel :=
 		newLinearRegression(
@@ -198,7 +257,7 @@ func main() {
 	trainSequential(
 		sequentialModel,
 		trainData,
-		epochs,
+		config.Epochs,
 		learningRate,
 		true,
 	)
@@ -261,7 +320,7 @@ func main() {
 	trainConcurrent(
 		concurrentModel,
 		trainData,
-		epochs,
+		config.Epochs,
 		learningRate,
 		workerCount,
 		true,
@@ -355,8 +414,14 @@ func main() {
 		"R² concurrente: %.6f\n",
 		concurrentMetrics.R2,
 	)
+}
 
-	const benchmarkRuns = 7
+func runBenchmarkMode(
+	trainData []Sample,
+	featureSchema FeatureSchema,
+	config Config,
+	learningRate float64,
+) {
 
 	fmt.Println()
 	fmt.Println("======================================")
@@ -365,12 +430,12 @@ func main() {
 
 	fmt.Printf(
 		"Ejecuciones por configuración: %d\n",
-		benchmarkRuns,
+		config.Runs,
 	)
 
 	fmt.Printf(
 		"Épocas por ejecución: %d\n",
-		epochs,
+		config.Epochs,
 	)
 
 	fmt.Printf(
@@ -382,40 +447,28 @@ func main() {
 		benchmarkSequential(
 			trainData,
 			featureSchema.FeatureCount,
-			epochs,
+			config.Epochs,
 			learningRate,
-			benchmarkRuns,
+			config.Runs,
 		)
-
-	workerConfigurations :=
-		[]int{
-			1,
-			2,
-			4,
-			8,
-			12,
-			16,
-			24,
-			32,
-		}
 
 	benchmarkResults :=
 		make(
 			[]BenchmarkResult,
 			0,
-			len(workerConfigurations),
+			len(config.Workers),
 		)
 
-	for _, workers := range workerConfigurations {
+	for _, workers := range config.Workers {
 
 		result :=
 			benchmarkConcurrent(
 				trainData,
 				featureSchema.FeatureCount,
-				epochs,
+				config.Epochs,
 				learningRate,
 				workers,
-				benchmarkRuns,
+				config.Runs,
 			)
 
 		result.Speedup =
@@ -453,6 +506,14 @@ func main() {
 			result.Efficiency,
 		)
 	}
+}
+
+func runResourcesMode(
+	trainData []Sample,
+	featureSchema FeatureSchema,
+	config Config,
+	learningRate float64,
+) {
 
 	const resourceRuns = 3
 
@@ -473,7 +534,7 @@ func main() {
 		profileSequentialResources(
 			trainData,
 			featureSchema.FeatureCount,
-			epochs,
+			config.Epochs,
 			learningRate,
 			resourceRuns,
 		)
@@ -484,13 +545,13 @@ func main() {
 			sequentialResources,
 		)
 
-	for _, workers := range workerConfigurations {
+	for _, workers := range config.Workers {
 
 		result :=
 			profileConcurrentResources(
 				trainData,
 				featureSchema.FeatureCount,
-				epochs,
+				config.Epochs,
 				learningRate,
 				workers,
 				resourceRuns,
