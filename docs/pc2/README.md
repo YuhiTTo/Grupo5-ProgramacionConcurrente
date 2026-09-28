@@ -18,7 +18,7 @@ punto de rúbrica → archivo(s)/evidencia → estado.
 | (g) | Historial de gitflow | Historial de commits de este repositorio (`git log`), ramas `feature/*` sobre `develop`/`main` | listo (ver `git log --graph --oneline --all`) |
 
 Nota sobre "listo" en (a): la corrida de verificación de seguridad
-(`pan -a`, sin propiedades LTL) ya se ejecutó sobre una versión anterior
+(`pan`, sin propiedades LTL) ya se ejecutó sobre una versión anterior
 del modelo (`results/promela/verificacion_spin.txt`, 0 errores). Las
 propiedades LTL (`safe_update`, `termination`, `mutex`) y las variantes
 `-DNUM_WORKERS=2 -DNUM_JOBS=4` / `-DNUM_WORKERS=4 -DNUM_JOBS=8` son

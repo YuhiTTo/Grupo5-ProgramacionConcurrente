@@ -113,8 +113,9 @@ se escribió este documento — ver nota abajo).
 
 Cada corrida hace, por variante:
 1. `spin -a -DNUM_WORKERS=<n> -DNUM_JOBS=<m> regression_workers.pml`
-2. `gcc -DSAFETY -o pan pan.c && ./pan -a` (seguridad: deadlock,
-   invalid end states, assertion violations)
+2. `gcc -DSAFETY -DNOCLAIM -o pan pan.c && ./pan` (seguridad: deadlock,
+   invalid end states, assertion violations; `-DNOCLAIM` ignora las
+   fórmulas `ltl` para que sea un chequeo puro de seguridad)
 3. `gcc -o pan pan.c && ./pan -a -N <ltl>` para cada una de
    `safe_update`, `termination`, `mutex`
 
