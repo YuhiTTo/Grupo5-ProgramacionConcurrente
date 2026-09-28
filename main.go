@@ -1,358 +1,535 @@
 package main
 
 import (
-	"encoding/csv"
 	"fmt"
-	"io"
 	"os"
-	"regexp"
-	"strconv"
-	"strings"
+	"runtime"
+	"time"
 )
 
-const (
-	inputCSVPath  = "dataset/Hospital_Inpatient_Discharges_(SPARCS_De-Identified)__2022_20260913.csv"
-	outputCSVPath = "dataset/SPARCS_2022_clean_go.csv"
-)
-
-var (
-	firstIntegerRegex = regexp.MustCompile(`[0-9]+`)
-	los120PlusRegex   = regexp.MustCompile(`^120[[:space:]]*\+`)
-)
-
-var outputColumns = []string{
-	"Age Group",
-	"Length of Stay",
-	"LOS_120_plus",
-	"Type of Admission",
-	"APR Severity of Illness Code",
-	"Severity_unknown",
-	"APR MDC Description",
-	"APR Medical Surgical Description",
-	"Payment Typology 1",
-	"Emergency Department Indicator",
-	"Total Costs",
-}
-
-var requiredColumns = []string{
-	"Age Group",
-	"Length of Stay",
-	"Type of Admission",
-	"APR Severity of Illness Code",
-	"APR MDC Description",
-	"APR Medical Surgical Description",
-	"Payment Typology 1",
-	"Emergency Department Indicator",
-	"Total Costs",
-}
-
-type CleaningStats struct {
-	RowsRead                int
-	RowsKept                int
-	RowsDiscarded           int
-	InvalidTotalCostRows    int
-	InvalidLengthOfStayRows int
-	LengthOfStay120PlusRows int
-	UnknownSeverityRows     int
-}
-
-type CleanedRecord struct {
-	AgeGroup                     string
-	LengthOfStay                 int
-	IsLengthOfStay120Plus        bool
-	AdmissionType                string
-	SeverityCode                 int
-	IsSeverityUnknown            bool
-	APRMajorDiagnosticCategory   string
-	MedicalSurgicalCategory      string
-	PrimaryPaymentType           string
-	EmergencyDepartmentIndicator string
-	TotalCost                    float64
-}
+const cleanDatasetPath = "dataset/SPARCS_2022_clean_go.csv"
 
 func main() {
-	inputFile, err := os.Open(inputCSVPath)
+	fmt.Println(" PC2 - REGRESIÓN LINEAL")
+
+	datasetInfo, err := inspectCleanDataset(cleanDatasetPath)
+
 	if err != nil {
-		fmt.Println("Error al abrir el dataset:", err)
+		fmt.Println("Error:", err)
 		return
 	}
-	defer inputFile.Close()
 
-	csvReader := csv.NewReader(inputFile)
-	csvReader.FieldsPerRecord = -1
+	fmt.Printf("\nRegistros encontrados: %d\n", datasetInfo.RowCount)
+	fmt.Printf("Columnas encontradas:  %d\n", len(datasetInfo.Columns))
 
-	header, err := csvReader.Read()
+	fmt.Println("\nAnalizando categorías del dataset completo...")
+
+	preprocessingSummary, err :=
+		analyzePreprocessingSchema(cleanDatasetPath)
+
 	if err != nil {
-		fmt.Println("Error al leer la cabecera:", err)
+		fmt.Println("Error:", err)
 		return
 	}
 
-	columnIndex := buildColumnIndex(header)
+	printCategorySummary(
+		"Age Group",
+		preprocessingSummary.AgeGroups,
+	)
 
-	if missingColumn := findMissingRequiredColumn(columnIndex); missingColumn != "" {
-		fmt.Printf("No se encontró la columna obligatoria: %s\n", missingColumn)
-		return
-	}
+	printCategorySummary(
+		"Type of Admission",
+		preprocessingSummary.AdmissionTypes,
+	)
 
-	outputFile, err := os.Create(outputCSVPath)
+	printCategorySummary(
+		"APR MDC Description",
+		preprocessingSummary.MajorDiagnosticGroups,
+	)
+
+	printCategorySummary(
+		"APR Medical Surgical Description",
+		preprocessingSummary.MedicalSurgicalGroups,
+	)
+
+	printCategorySummary(
+		"Payment Typology 1",
+		preprocessingSummary.PaymentTypes,
+	)
+
+	printCategorySummary(
+		"Emergency Department Indicator",
+		preprocessingSummary.EmergencyIndicators,
+	)
+
+	fmt.Println()
+	fmt.Println(" RESUMEN DE PREPROCESAMIENTO")
+
+	fmt.Printf(
+		"Features numéricas finales esperadas: %d\n",
+		preprocessingSummary.FinalFeatureCount,
+	)
+
+	featureSchema, err :=
+		buildFeatureSchema(preprocessingSummary)
+
 	if err != nil {
-		fmt.Println("Error al crear el archivo de salida:", err)
-		return
-	}
-	defer outputFile.Close()
-
-	csvWriter := csv.NewWriter(outputFile)
-	defer csvWriter.Flush()
-
-	if err := csvWriter.Write(outputColumns); err != nil {
-		fmt.Println("Error al escribir la cabecera:", err)
+		fmt.Println("Error:", err)
 		return
 	}
 
-	stats := CleaningStats{}
+	fmt.Printf(
+		"\nFeatures configuradas: %d\n",
+		featureSchema.FeatureCount,
+	)
 
-	for {
-		rawRow, err := csvReader.Read()
+	fmt.Println()
+	fmt.Println("Preparando Train/Test...")
 
-		if err == io.EOF {
-			break
+	trainData, testData, err :=
+		loadAndSplitDataset(
+			cleanDatasetPath,
+			featureSchema,
+			datasetInfo.RowCount,
+			0.80,
+			42,
+		)
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Println()
+	fmt.Println(" DATASET PARA REGRESIÓN LINEAL")
+
+	fmt.Printf(
+		"Total: %d\n",
+		len(trainData)+len(testData),
+	)
+
+	fmt.Printf(
+		"Train: %d (%.2f%%)\n",
+		len(trainData),
+		float64(len(trainData))/
+			float64(len(trainData)+len(testData))*100,
+	)
+
+	fmt.Printf(
+		"Test:  %d (%.2f%%)\n",
+		len(testData),
+		float64(len(testData))/
+			float64(len(trainData)+len(testData))*100,
+	)
+
+	fmt.Printf(
+		"Features: %d\n",
+		featureSchema.FeatureCount,
+	)
+
+	fmt.Println()
+	fmt.Println("Calculando parámetros de escalamiento...")
+
+	scalingParameters, err :=
+		calculateScalingParameters(trainData)
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Println()
+	fmt.Println(" PARÁMETROS DE ESCALAMIENTO")
+
+	fmt.Printf(
+		"Length of Stay -> media: %.4f | std: %.4f\n",
+		scalingParameters.LengthOfStayMean,
+		scalingParameters.LengthOfStayStd,
+	)
+
+	fmt.Printf(
+		"Severity       -> media: %.4f | std: %.4f\n",
+		scalingParameters.SeverityMean,
+		scalingParameters.SeverityStd,
+	)
+
+	fmt.Printf(
+		"Total Costs    -> media: %.2f | std: %.2f\n",
+		scalingParameters.TargetMean,
+		scalingParameters.TargetStd,
+	)
+
+	applyScaling(
+		trainData,
+		scalingParameters,
+	)
+
+	applyScaling(
+		testData,
+		scalingParameters,
+	)
+
+	fmt.Println()
+	fmt.Println("Escalamiento aplicado correctamente.")
+	fmt.Println("Parámetros calculados únicamente con Train.")
+
+	const epochs = 100
+	const learningRate = 0.01
+
+	if len(os.Args) > 1 && os.Args[1] == "cpu-profile" {
+
+		runCPUProfile(
+			trainData,
+			featureSchema.FeatureCount,
+			learningRate,
+		)
+
+		return
+	}
+
+	sequentialModel :=
+		newLinearRegression(
+			featureSchema.FeatureCount,
+		)
+
+	trainingStart :=
+		time.Now()
+
+	trainSequential(
+		sequentialModel,
+		trainData,
+		epochs,
+		learningRate,
+		true,
+	)
+
+	sequentialDuration :=
+		time.Since(trainingStart)
+
+	fmt.Println()
+	fmt.Println("Entrenamiento secuencial completado.")
+
+	fmt.Printf(
+		"Tiempo de entrenamiento: %v\n",
+		sequentialDuration,
+	)
+
+	fmt.Println()
+	fmt.Println("Evaluando modelo sobre Test...")
+
+	sequentialMetrics :=
+		evaluateModel(
+			sequentialModel,
+			testData,
+			scalingParameters,
+		)
+
+	fmt.Println()
+	fmt.Println(" RESULTADOS SECUENCIALES - TEST")
+
+	fmt.Printf(
+		"MSE:  %.2f\n",
+		sequentialMetrics.MSE,
+	)
+
+	fmt.Printf(
+		"RMSE: $%.2f\n",
+		sequentialMetrics.RMSE,
+	)
+
+	fmt.Printf(
+		"MAE:  $%.2f\n",
+		sequentialMetrics.MAE,
+	)
+
+	fmt.Printf(
+		"R²:   %.6f\n",
+		sequentialMetrics.R2,
+	)
+
+	workerCount :=
+		runtime.NumCPU()
+
+	concurrentModel :=
+		newLinearRegression(
+			featureSchema.FeatureCount,
+		)
+
+	concurrentStart :=
+		time.Now()
+
+	trainConcurrent(
+		concurrentModel,
+		trainData,
+		epochs,
+		learningRate,
+		workerCount,
+		true,
+	)
+
+	concurrentDuration :=
+		time.Since(concurrentStart)
+
+	fmt.Println()
+	fmt.Println("Entrenamiento concurrente completado.")
+
+	fmt.Printf(
+		"Tiempo de entrenamiento: %v\n",
+		concurrentDuration,
+	)
+
+	concurrentMetrics :=
+		evaluateModel(
+			concurrentModel,
+			testData,
+			scalingParameters,
+		)
+
+	fmt.Println()
+	fmt.Println(" RESULTADOS CONCURRENTES - TEST")
+
+	fmt.Printf(
+		"MSE:  %.2f\n",
+		concurrentMetrics.MSE,
+	)
+
+	fmt.Printf(
+		"RMSE: $%.2f\n",
+		concurrentMetrics.RMSE,
+	)
+
+	fmt.Printf(
+		"MAE:  $%.2f\n",
+		concurrentMetrics.MAE,
+	)
+
+	fmt.Printf(
+		"R²:   %.6f\n",
+		concurrentMetrics.R2,
+	)
+
+	speedup :=
+		sequentialDuration.Seconds() /
+			concurrentDuration.Seconds()
+
+	modelDifference :=
+		maxModelDifference(
+			sequentialModel,
+			concurrentModel,
+		)
+
+	fmt.Println()
+	fmt.Println(" COMPARACIÓN INICIAL")
+
+	fmt.Printf(
+		"CPU lógicas disponibles: %d\n",
+		runtime.NumCPU(),
+	)
+
+	fmt.Printf(
+		"Tiempo secuencial:  %v\n",
+		sequentialDuration,
+	)
+
+	fmt.Printf(
+		"Tiempo concurrente: %v\n",
+		concurrentDuration,
+	)
+
+	fmt.Printf(
+		"Speedup preliminar: %.4fx\n",
+		speedup,
+	)
+
+	fmt.Printf(
+		"Diferencia máxima entre modelos: %.12f\n",
+		modelDifference,
+	)
+
+	fmt.Printf(
+		"R² secuencial:  %.6f\n",
+		sequentialMetrics.R2,
+	)
+
+	fmt.Printf(
+		"R² concurrente: %.6f\n",
+		concurrentMetrics.R2,
+	)
+
+	const benchmarkRuns = 7
+
+	fmt.Println()
+	fmt.Println("======================================")
+	fmt.Println(" BENCHMARK FORMAL")
+	fmt.Println("======================================")
+
+	fmt.Printf(
+		"Ejecuciones por configuración: %d\n",
+		benchmarkRuns,
+	)
+
+	fmt.Printf(
+		"Épocas por ejecución: %d\n",
+		epochs,
+	)
+
+	fmt.Printf(
+		"CPU lógicas disponibles: %d\n",
+		runtime.NumCPU(),
+	)
+
+	sequentialBenchmark :=
+		benchmarkSequential(
+			trainData,
+			featureSchema.FeatureCount,
+			epochs,
+			learningRate,
+			benchmarkRuns,
+		)
+
+	workerConfigurations :=
+		[]int{
+			1,
+			2,
+			4,
+			8,
+			12,
+			16,
+			24,
+			32,
 		}
 
-		if err != nil {
-			fmt.Println("Error al leer una fila:", err)
-			return
-		}
+	benchmarkResults :=
+		make(
+			[]BenchmarkResult,
+			0,
+			len(workerConfigurations),
+		)
 
-		stats.RowsRead++
+	for _, workers := range workerConfigurations {
 
-		cleanedRecord, discardReason, shouldKeep := cleanRecord(rawRow, columnIndex)
+		result :=
+			benchmarkConcurrent(
+				trainData,
+				featureSchema.FeatureCount,
+				epochs,
+				learningRate,
+				workers,
+				benchmarkRuns,
+			)
 
-		if !shouldKeep {
-			registerDiscard(&stats, discardReason)
+		result.Speedup =
+			sequentialBenchmark.TrimmedMean.Seconds() /
+				result.TrimmedMean.Seconds()
+
+		result.Efficiency =
+			result.Speedup /
+				float64(workers)
+
+		benchmarkResults =
+			append(
+				benchmarkResults,
+				result,
+			)
+	}
+
+	fmt.Println()
+	fmt.Println("======================================")
+	fmt.Println(" RESULTADOS DEL BENCHMARK")
+	fmt.Println("======================================")
+
+	fmt.Printf(
+		"Secuencial | Media recortada: %v | Speedup: 1.0000x\n",
+		sequentialBenchmark.TrimmedMean,
+	)
+
+	for _, result := range benchmarkResults {
+
+		fmt.Printf(
+			"%2d workers | Media: %v | Speedup: %.4fx | Eficiencia: %.4f\n",
+			result.Workers,
+			result.TrimmedMean,
+			result.Speedup,
+			result.Efficiency,
+		)
+	}
+
+	const resourceRuns = 3
+
+	fmt.Println()
+	fmt.Println("======================================")
+	fmt.Println(" PERFIL DE RECURSOS")
+	fmt.Println("======================================")
+
+	fmt.Printf(
+		"Ejecuciones por configuración: %d\n",
+		resourceRuns,
+	)
+
+	resourceResults :=
+		make([]ResourceProfileResult, 0)
+
+	sequentialResources :=
+		profileSequentialResources(
+			trainData,
+			featureSchema.FeatureCount,
+			epochs,
+			learningRate,
+			resourceRuns,
+		)
+
+	resourceResults =
+		append(
+			resourceResults,
+			sequentialResources,
+		)
+
+	for _, workers := range workerConfigurations {
+
+		result :=
+			profileConcurrentResources(
+				trainData,
+				featureSchema.FeatureCount,
+				epochs,
+				learningRate,
+				workers,
+				resourceRuns,
+			)
+
+		resourceResults =
+			append(
+				resourceResults,
+				result,
+			)
+	}
+
+	fmt.Println()
+	fmt.Println("======================================")
+	fmt.Println(" RESUMEN DE RECURSOS")
+	fmt.Println("======================================")
+
+	for _, result := range resourceResults {
+
+		if result.Workers == 0 {
+
+			fmt.Printf(
+				"Secuencial | Peak Heap: %.2f MB | Alloc: %.2f MB | Mallocs: %.0f | GC: %.2f\n",
+				result.PeakHeapMB,
+				result.AllocatedMB,
+				result.AverageMallocs,
+				result.AverageGC,
+			)
+
 			continue
 		}
 
-		if cleanedRecord.IsLengthOfStay120Plus {
-			stats.LengthOfStay120PlusRows++
-		}
-
-		if cleanedRecord.IsSeverityUnknown {
-			stats.UnknownSeverityRows++
-		}
-
-		if err := csvWriter.Write(cleanedRecord.toCSVRow()); err != nil {
-			fmt.Println("Error al escribir una fila:", err)
-			return
-		}
-
-		stats.RowsKept++
-	}
-
-	csvWriter.Flush()
-
-	if err := csvWriter.Error(); err != nil {
-		fmt.Println("Error durante la escritura:", err)
-		return
-	}
-
-	printCleaningSummary(stats)
-}
-
-func cleanRecord(
-	rawRow []string,
-	columnIndex map[string]int,
-) (CleanedRecord, string, bool) {
-
-	valueOf := func(columnName string) string {
-		position := columnIndex[columnName]
-
-		if position < 0 || position >= len(rawRow) {
-			return ""
-		}
-
-		return rawRow[position]
-	}
-
-	totalCost, validTotalCost := parseCurrency(valueOf("Total Costs"))
-
-	if !validTotalCost || totalCost <= 0 {
-		return CleanedRecord{}, "invalid_total_cost", false
-	}
-
-	lengthOfStay, is120Plus, validLengthOfStay := parseLengthOfStay(
-		valueOf("Length of Stay"),
-	)
-
-	if !validLengthOfStay || lengthOfStay <= 0 {
-		return CleanedRecord{}, "invalid_length_of_stay", false
-	}
-
-	severityCode, isSeverityUnknown := parseSeverityCode(
-		valueOf("APR Severity of Illness Code"),
-	)
-
-	cleanedRecord := CleanedRecord{
-		AgeGroup: normalizeCategory(
-			valueOf("Age Group"),
-		),
-		LengthOfStay:          lengthOfStay,
-		IsLengthOfStay120Plus: is120Plus,
-		AdmissionType: normalizeCategory(
-			valueOf("Type of Admission"),
-		),
-		SeverityCode:      severityCode,
-		IsSeverityUnknown: isSeverityUnknown,
-		APRMajorDiagnosticCategory: normalizeCategory(
-			valueOf("APR MDC Description"),
-		),
-		MedicalSurgicalCategory: normalizeCategory(
-			valueOf("APR Medical Surgical Description"),
-		),
-		PrimaryPaymentType: normalizeCategory(
-			valueOf("Payment Typology 1"),
-		),
-		EmergencyDepartmentIndicator: normalizeCategory(
-			valueOf("Emergency Department Indicator"),
-		),
-		TotalCost: totalCost,
-	}
-
-	return cleanedRecord, "", true
-}
-
-func parseCurrency(rawValue string) (float64, bool) {
-	normalizedValue := strings.TrimSpace(rawValue)
-	normalizedValue = strings.ReplaceAll(normalizedValue, ",", "")
-	normalizedValue = strings.ReplaceAll(normalizedValue, "$", "")
-
-	if normalizedValue == "" {
-		return 0, false
-	}
-
-	parsedValue, err := strconv.ParseFloat(normalizedValue, 64)
-
-	if err != nil {
-		return 0, false
-	}
-
-	return parsedValue, true
-}
-
-func parseLengthOfStay(rawValue string) (int, bool, bool) {
-	normalizedValue := strings.TrimSpace(rawValue)
-
-	is120Plus := los120PlusRegex.MatchString(normalizedValue)
-
-	numericPart := firstIntegerRegex.FindString(normalizedValue)
-
-	if numericPart == "" {
-		return 0, is120Plus, false
-	}
-
-	lengthOfStay, err := strconv.Atoi(numericPart)
-
-	if err != nil {
-		return 0, is120Plus, false
-	}
-
-	return lengthOfStay, is120Plus, true
-}
-
-func parseSeverityCode(rawValue string) (int, bool) {
-	normalizedValue := strings.TrimSpace(rawValue)
-
-	severityCode, err := strconv.Atoi(normalizedValue)
-
-	if err != nil || severityCode < 1 || severityCode > 4 {
-		return 0, true
-	}
-
-	return severityCode, false
-}
-
-func normalizeCategory(rawValue string) string {
-	normalizedValue := strings.TrimSpace(rawValue)
-
-	if normalizedValue == "" {
-		return "Unknown"
-	}
-
-	return normalizedValue
-}
-
-func buildColumnIndex(header []string) map[string]int {
-	columnIndex := make(map[string]int, len(header))
-
-	for position, rawColumnName := range header {
-		columnName := strings.TrimSpace(
-			strings.TrimPrefix(rawColumnName, "\ufeff"),
+		fmt.Printf(
+			"%2d workers | Peak Heap: %.2f MB | Alloc: %.2f MB | Mallocs: %.0f | GC: %.2f\n",
+			result.Workers,
+			result.PeakHeapMB,
+			result.AllocatedMB,
+			result.AverageMallocs,
+			result.AverageGC,
 		)
-
-		columnIndex[columnName] = position
 	}
-
-	return columnIndex
-}
-
-func findMissingRequiredColumn(columnIndex map[string]int) string {
-	for _, columnName := range requiredColumns {
-		if _, exists := columnIndex[columnName]; !exists {
-			return columnName
-		}
-	}
-
-	return ""
-}
-
-func registerDiscard(stats *CleaningStats, reason string) {
-	stats.RowsDiscarded++
-
-	switch reason {
-	case "invalid_total_cost":
-		stats.InvalidTotalCostRows++
-
-	case "invalid_length_of_stay":
-		stats.InvalidLengthOfStayRows++
-	}
-}
-
-func (record CleanedRecord) toCSVRow() []string {
-	return []string{
-		record.AgeGroup,
-		strconv.Itoa(record.LengthOfStay),
-		strconv.Itoa(boolToInt(record.IsLengthOfStay120Plus)),
-		record.AdmissionType,
-		strconv.Itoa(record.SeverityCode),
-		strconv.Itoa(boolToInt(record.IsSeverityUnknown)),
-		record.APRMajorDiagnosticCategory,
-		record.MedicalSurgicalCategory,
-		record.PrimaryPaymentType,
-		record.EmergencyDepartmentIndicator,
-		strconv.FormatFloat(record.TotalCost, 'f', -1, 64),
-	}
-}
-
-func boolToInt(value bool) int {
-	if value {
-		return 1
-	}
-
-	return 0
-}
-
-func printCleaningSummary(stats CleaningStats) {
-	fmt.Println()
-	fmt.Println(" SPARCS 2022 - RESULTADO DE LIMPIEZA PC1")
-
-	fmt.Printf("Registros leídos:                  %d\n", stats.RowsRead)
-	fmt.Printf("Registros conservados:             %d\n", stats.RowsKept)
-	fmt.Printf("Registros descartados:             %d\n", stats.RowsDiscarded)
-	fmt.Printf("  - Total Costs inválido/no > 0:   %d\n", stats.InvalidTotalCostRows)
-	fmt.Printf("  - Length of Stay inválido/no >0: %d\n", stats.InvalidLengthOfStayRows)
-	fmt.Printf("Casos Length of Stay = 120+:       %d\n", stats.LengthOfStay120PlusRows)
-	fmt.Printf("Casos de severidad desconocida:    %d\n", stats.UnknownSeverityRows)
-
-	fmt.Println()
-	fmt.Println("Dataset limpio generado en:")
-	fmt.Println(outputCSVPath)
 }

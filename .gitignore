@@ -13,6 +13,11 @@ dataset/*.csv
 bin/
 dist/
 
+# SPIN / Promela generated files
+/pan
+/pan.*
+/*.trail
+
 # IDE / System
 .vscode/
 .idea/
