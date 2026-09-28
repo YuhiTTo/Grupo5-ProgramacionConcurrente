@@ -67,6 +67,15 @@ the gaps that can be closed from the repository.
   output lacks `errors: 0` (tested: real file ok, fake `errors: 3` rejected; Docker 2/4 run exit 0).
   R2-3 dismissed (flags already default). R1-001/R1-002/R3-2/R4-001/R4-003 left as informational.
 
+- Review review-7b40d84ace7f022c (a4e9b6a, 4 lenses, consent granted): approved, acknowledged,
+  authority burned. Advisory warnings left informational.
+- [x] R4 (added on user request "modifica el informe"): Word report edited as a new copy
+  `Documentos/CC65-PC2-202620-[Código de alumno]-revisado.docx` (original kept byte-identical):
+  new 5.2 PC1 corrections, LTL table at end of 6.4, new 10.4 Karp–Flatt, 8 vs 12 workers
+  complement in 11.3, branches/PRs in 12, Karp & Flatt (1990) reference; updateFields=true so
+  Word offers to refresh the TOC. Checks: docx skill validate.py PASSED; Word COM export OK
+  (46 pages); pages 14/22/40/44/46 rendered and inspected.
+
 ## Next step
 - Push branch and open PR to `develop` (user decision).
 - Team: paste docs/pc2/07 blocks into the Word report; upload one Word per student.
