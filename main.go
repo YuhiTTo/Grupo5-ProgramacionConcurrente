@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"time"
@@ -10,9 +14,155 @@ import (
 const cleanDatasetPath = "dataset/SPARCS_2022_clean_go.csv"
 
 func main() {
+	config, err := parseConfig(os.Args[1:])
+
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			os.Exit(0)
+		}
+
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+
+	if config.Mode == "download" {
+		if err := runDownloadMode(config); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
+
+		return
+	}
+
+	if config.Mode == "clean" {
+		if err := ensureRawDatasetAvailable(config); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
+
+		runCleaning()
+		return
+	}
+
+	if err := ensureCleanDatasetAvailable(config); err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+
+	runPipeline(config)
+}
+
+// runDownloadMode implementa `-mode=download`: descarga el/los
+// dataset(s) seleccionados por -download (clean|raw|all).
+func runDownloadMode(config Config) error {
+	return runDownloadTargets(downloadTargets(config.DownloadTarget), os.Stdout)
+}
+
+// runDownloadTargets descarga cada dataset nombrado en targets usando
+// el cliente HTTP real y el allowlist de producción.
+func runDownloadTargets(targets []string, out io.Writer) error {
+	ctx := context.Background()
+	client := newDatasetHTTPClient()
+
+	for _, name := range targets {
+		spec, ok := datasetSpecs[name]
+
+		if !ok {
+			return fmt.Errorf("dataset desconocido: %q", name)
+		}
+
+		if _, err := ensureDataset(ctx, client, spec, defaultDatasetAllowlist, out); err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+// downloadTargets traduce el valor de -download (clean|raw|all) a la
+// lista de nombres de dataset a procesar.
+func downloadTargets(target string) []string {
+	switch target {
+	case "raw":
+		return []string{"raw"}
+	case "all":
+		return []string{"clean", "raw"}
+	default:
+		return []string{"clean"}
+	}
+}
+
+// ensureCleanDatasetAvailable garantiza que el dataset limpio usado por
+// el pipeline de regresión exista antes de correrlo. Si -dataset
+// apunta a la ruta por defecto y el archivo falta, se descarga
+// automáticamente (salvo -no-download). Una ruta -dataset
+// personalizada nunca se auto-descarga: solo se valida su presencia.
+func ensureCleanDatasetAvailable(config Config) error {
+	if config.DatasetPath != cleanDatasetPath {
+		if fileExists(config.DatasetPath) {
+			return nil
+		}
+
+		return fmt.Errorf(
+			"el dataset %q no existe; colóquelo manualmente en esa ruta o pase una ruta válida con -dataset",
+			config.DatasetPath,
+		)
+	}
+
+	return ensureNamedDatasetAvailable(cleanDatasetPath, "clean", "el dataset limpio", config.NoDownload)
+}
+
+// ensureRawDatasetAvailable garantiza que el dataset original (crudo)
+// usado por `-mode=clean` exista, descargándolo automáticamente si
+// falta (salvo -no-download). Su ruta no es configurable vía flag.
+func ensureRawDatasetAvailable(config Config) error {
+	return ensureNamedDatasetAvailable(inputCSVPath, "raw", "el dataset original", config.NoDownload)
+}
+
+// ensureNamedDatasetAvailable es el helper común: si path ya existe no
+// hace nada; si falta y noDownload está activo devuelve un error
+// accionable; si falta y se permite descargar, descarga el dataset
+// registrado bajo specName en datasetSpecs.
+func ensureNamedDatasetAvailable(path string, specName string, humanName string, noDownload bool) error {
+	if fileExists(path) {
+		return nil
+	}
+
+	if noDownload {
+		return fmt.Errorf(
+			"%s no existe en %q; ejecute 'go run . -mode=download -download=%s' para descargarlo (o quite -no-download)",
+			humanName, path, specName,
+		)
+	}
+
+	fmt.Printf("%s no encontrado en %q, descargando automáticamente...\n", humanName, path)
+
+	spec, ok := datasetSpecs[specName]
+
+	if !ok {
+		return fmt.Errorf("dataset desconocido: %q", specName)
+	}
+
+	_, err := ensureDataset(
+		context.Background(),
+		newDatasetHTTPClient(),
+		spec,
+		defaultDatasetAllowlist,
+		os.Stdout,
+	)
+
+	return err
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func runPipeline(config Config) {
 	fmt.Println(" PC2 - REGRESIÓN LINEAL")
 
-	datasetInfo, err := inspectCleanDataset(cleanDatasetPath)
+	datasetInfo, err := inspectCleanDataset(config.DatasetPath)
 
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -25,7 +175,7 @@ func main() {
 	fmt.Println("\nAnalizando categorías del dataset completo...")
 
 	preprocessingSummary, err :=
-		analyzePreprocessingSchema(cleanDatasetPath)
+		analyzePreprocessingSchema(config.DatasetPath)
 
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -88,7 +238,7 @@ func main() {
 
 	trainData, testData, err :=
 		loadAndSplitDataset(
-			cleanDatasetPath,
+			config.DatasetPath,
 			featureSchema,
 			datasetInfo.RowCount,
 			0.80,
@@ -173,19 +323,83 @@ func main() {
 	fmt.Println("Escalamiento aplicado correctamente.")
 	fmt.Println("Parámetros calculados únicamente con Train.")
 
-	const epochs = 100
 	const learningRate = 0.01
 
-	if len(os.Args) > 1 && os.Args[1] == "cpu-profile" {
-
-		runCPUProfile(
+	if config.Mode == "cpu-profile" {
+		if err := runCPUProfile(
 			trainData,
 			featureSchema.FeatureCount,
 			learningRate,
-		)
+			config.OutDir,
+		); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
 
 		return
 	}
+
+	environmentPath, err := writeEnvironmentReport(
+		config.OutDir,
+		EnvironmentMeta{
+			TrainRows:    len(trainData),
+			FeatureCount: featureSchema.FeatureCount,
+			Epochs:       config.Epochs,
+			LearningRate: learningRate,
+			Runs:         config.Runs,
+			Warmup:       config.Warmup,
+			TrimFraction: config.TrimFraction,
+		},
+	)
+
+	if err != nil {
+		fmt.Println("Advertencia: no se pudo escribir environment.md:", err)
+	} else {
+		fmt.Printf("\nMetadatos de entorno guardados en: %s\n", environmentPath)
+	}
+
+	if config.Mode == "quick" || config.Mode == "all" {
+		if err := runQuickComparison(
+			trainData,
+			testData,
+			featureSchema,
+			scalingParameters,
+			config,
+			learningRate,
+		); err != nil {
+			fmt.Println()
+			fmt.Println("Error: verificación de equivalencia falló:", err)
+			os.Exit(1)
+		}
+	}
+
+	if config.Mode == "benchmark" || config.Mode == "all" {
+		runBenchmarkMode(
+			trainData,
+			featureSchema,
+			config,
+			learningRate,
+		)
+	}
+
+	if config.Mode == "resources" || config.Mode == "all" {
+		runResourcesMode(
+			trainData,
+			featureSchema,
+			config,
+			learningRate,
+		)
+	}
+}
+
+func runQuickComparison(
+	trainData []Sample,
+	testData []Sample,
+	featureSchema FeatureSchema,
+	scalingParameters ScalingParameters,
+	config Config,
+	learningRate float64,
+) error {
 
 	sequentialModel :=
 		newLinearRegression(
@@ -198,7 +412,7 @@ func main() {
 	trainSequential(
 		sequentialModel,
 		trainData,
-		epochs,
+		config.Epochs,
 		learningRate,
 		true,
 	)
@@ -261,7 +475,7 @@ func main() {
 	trainConcurrent(
 		concurrentModel,
 		trainData,
-		epochs,
+		config.Epochs,
 		learningRate,
 		workerCount,
 		true,
@@ -356,7 +570,37 @@ func main() {
 		concurrentMetrics.R2,
 	)
 
-	const benchmarkRuns = 7
+	const equivalenceTolerance = 1e-9
+
+	equivalenceErr := verifyEquivalence(
+		sequentialModel,
+		concurrentModel,
+		equivalenceTolerance,
+	)
+
+	if equivalenceErr != nil {
+		fmt.Println()
+		fmt.Println(" VERIFICACIÓN DE EQUIVALENCIA: FALLÓ")
+		fmt.Printf("Tolerancia: %.12f\n", equivalenceTolerance)
+
+		return equivalenceErr
+	}
+
+	fmt.Println()
+	fmt.Printf(
+		"Verificación de equivalencia: OK (diferencia máxima <= %.12f)\n",
+		equivalenceTolerance,
+	)
+
+	return nil
+}
+
+func runBenchmarkMode(
+	trainData []Sample,
+	featureSchema FeatureSchema,
+	config Config,
+	learningRate float64,
+) {
 
 	fmt.Println()
 	fmt.Println("======================================")
@@ -365,12 +609,12 @@ func main() {
 
 	fmt.Printf(
 		"Ejecuciones por configuración: %d\n",
-		benchmarkRuns,
+		config.Runs,
 	)
 
 	fmt.Printf(
 		"Épocas por ejecución: %d\n",
-		epochs,
+		config.Epochs,
 	)
 
 	fmt.Printf(
@@ -382,45 +626,37 @@ func main() {
 		benchmarkSequential(
 			trainData,
 			featureSchema.FeatureCount,
-			epochs,
+			config.Epochs,
 			learningRate,
-			benchmarkRuns,
+			config.Runs,
+			config.Warmup,
+			config.TrimFraction,
 		)
-
-	workerConfigurations :=
-		[]int{
-			1,
-			2,
-			4,
-			8,
-			12,
-			16,
-			24,
-			32,
-		}
 
 	benchmarkResults :=
 		make(
 			[]BenchmarkResult,
 			0,
-			len(workerConfigurations),
+			len(config.Workers),
 		)
 
-	for _, workers := range workerConfigurations {
+	for _, workers := range config.Workers {
 
 		result :=
 			benchmarkConcurrent(
 				trainData,
 				featureSchema.FeatureCount,
-				epochs,
+				config.Epochs,
 				learningRate,
 				workers,
-				benchmarkRuns,
+				config.Runs,
+				config.Warmup,
+				config.TrimFraction,
 			)
 
 		result.Speedup =
-			sequentialBenchmark.TrimmedMean.Seconds() /
-				result.TrimmedMean.Seconds()
+			sequentialBenchmark.Stats.TrimmedMean.Seconds() /
+				result.Stats.TrimmedMean.Seconds()
 
 		result.Efficiency =
 			result.Speedup /
@@ -440,7 +676,7 @@ func main() {
 
 	fmt.Printf(
 		"Secuencial | Media recortada: %v | Speedup: 1.0000x\n",
-		sequentialBenchmark.TrimmedMean,
+		sequentialBenchmark.Stats.TrimmedMean,
 	)
 
 	for _, result := range benchmarkResults {
@@ -448,11 +684,89 @@ func main() {
 		fmt.Printf(
 			"%2d workers | Media: %v | Speedup: %.4fx | Eficiencia: %.4f\n",
 			result.Workers,
-			result.TrimmedMean,
+			result.Stats.TrimmedMean,
 			result.Speedup,
 			result.Efficiency,
 		)
 	}
+
+	persistBenchmarkResults(config.OutDir, sequentialBenchmark, benchmarkResults)
+}
+
+// persistBenchmarkResults escribe la evidencia del benchmark formal
+// (corridas individuales, resumen CSV/Markdown y punto de
+// equilibrio) bajo <outDir>/benchmark/. Los fallos de persistencia se
+// reportan como advertencias y no abortan el benchmark, que ya
+// terminó de ejecutarse y de imprimir sus resultados en stdout.
+func persistBenchmarkResults(
+	outDir string,
+	sequentialBenchmark BenchmarkResult,
+	benchmarkResults []BenchmarkResult,
+) {
+
+	fmt.Println()
+
+	if path, err := writeBenchmarkRunsCSV(outDir, sequentialBenchmark, benchmarkResults); err != nil {
+		fmt.Println("Advertencia: no se pudo escribir benchmark_runs.csv:", err)
+	} else {
+		fmt.Println("Corridas individuales guardadas en:", path)
+	}
+
+	if path, err := writeSpeedupSummaryCSV(outDir, sequentialBenchmark, benchmarkResults); err != nil {
+		fmt.Println("Advertencia: no se pudo escribir speedup_summary.csv:", err)
+	} else {
+		fmt.Println("Resumen de speedup (CSV) guardado en:", path)
+	}
+
+	if path, err := writeSpeedupSummaryMarkdown(outDir, sequentialBenchmark, benchmarkResults); err != nil {
+		fmt.Println("Advertencia: no se pudo escribir speedup_summary.md:", err)
+	} else {
+		fmt.Println("Resumen de speedup (Markdown) guardado en:", path)
+	}
+
+	equilibriumWorkers, maxSpeedup, equilibriumFound :=
+		findEquilibrium(benchmarkResults, 0.95)
+
+	efficiencyDropWorkers, efficiencyDropFound :=
+		findEfficiencyDrop(benchmarkResults, 0.5)
+
+	if equilibriumFound {
+		fmt.Printf(
+			"Punto de equilibrio: %d workers (speedup máximo observado: %.4fx)\n",
+			equilibriumWorkers,
+			maxSpeedup,
+		)
+	} else {
+		fmt.Println("Punto de equilibrio: no se encontró con los datos disponibles.")
+	}
+
+	if efficiencyDropFound {
+		fmt.Printf(
+			"La eficiencia cae por debajo de 0.50 a partir de: %d workers\n",
+			efficiencyDropWorkers,
+		)
+	}
+
+	if path, err := writeEquilibriumMarkdown(
+		outDir,
+		equilibriumWorkers,
+		maxSpeedup,
+		equilibriumFound,
+		efficiencyDropWorkers,
+		efficiencyDropFound,
+	); err != nil {
+		fmt.Println("Advertencia: no se pudo escribir equilibrium.md:", err)
+	} else {
+		fmt.Println("Punto de equilibrio (Markdown) guardado en:", path)
+	}
+}
+
+func runResourcesMode(
+	trainData []Sample,
+	featureSchema FeatureSchema,
+	config Config,
+	learningRate float64,
+) {
 
 	const resourceRuns = 3
 
@@ -473,7 +787,7 @@ func main() {
 		profileSequentialResources(
 			trainData,
 			featureSchema.FeatureCount,
-			epochs,
+			config.Epochs,
 			learningRate,
 			resourceRuns,
 		)
@@ -484,13 +798,13 @@ func main() {
 			sequentialResources,
 		)
 
-	for _, workers := range workerConfigurations {
+	for _, workers := range config.Workers {
 
 		result :=
 			profileConcurrentResources(
 				trainData,
 				featureSchema.FeatureCount,
-				epochs,
+				config.Epochs,
 				learningRate,
 				workers,
 				resourceRuns,
@@ -531,5 +845,13 @@ func main() {
 			result.AverageMallocs,
 			result.AverageGC,
 		)
+	}
+
+	fmt.Println()
+
+	if path, err := writeResourcesCSV(config.OutDir, resourceResults); err != nil {
+		fmt.Println("Advertencia: no se pudo escribir resources.csv:", err)
+	} else {
+		fmt.Println("Perfil de recursos guardado en:", path)
 	}
 }
