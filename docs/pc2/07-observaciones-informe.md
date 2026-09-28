@@ -13,7 +13,7 @@ correspondientes.
 | (a) | Modelo Promela, libre de condiciones de carrera | §6 | listo en el informe; además, las propiedades LTL `safe_update`, `termination` y `mutex` se verificaron con Spin 6.5.2 en las variantes 2/4, 3/4 y 4/4, todas con `errors: 0` (tabla en `02-modelo-promela.md`). Opcional: agregar esa tabla al final de §6.4 como evidencia de exclusión mutua, lo que adelanta trabajo del TP |
 | (b) | Go secuencial vs. concurrente con evidencia | §7 (Fig. 10) | listo |
 | (c) | Sincronización (Worker Pools/Pipelines) | §7.4–§7.5 | listo, pero ver corrección de PC1 sobre `sync.Mutex` en el bloque 2(a) abajo |
-| (d) | Speedup, media recortada, tabla + estadística | §8–§9 | tabla y speedup/eficiencia listos; falta desviación estándar/CV (ver bloque 2(b)) |
+| (d) | Speedup, media recortada, tabla + estadística | §8–§9 | tabla y speedup/eficiencia listos; falta desviación estándar/CV (ver `03-metodologia-benchmark.md`, sección "Dispersión") |
 | (e) | Análisis de speedup/escalabilidad/trade-offs | §10 | falta Karp–Flatt y contraste con hardware (ver bloque 2(b)) |
 | (f) | Recursos hasta el punto de equilibrio | §11 | listo, pero el criterio de elección de 12 workers puede reforzarse (ver bloque 2(c)) |
 | (g) | Historial de gitflow | §12 | falta detalle por integrante (ver bloque 2(d)) |

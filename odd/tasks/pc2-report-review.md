@@ -27,7 +27,7 @@ the gaps that can be closed from the repository.
   PowerShell script (no Go behavior change), so `go test ./...` is the regression check.
 
 ## Tasks
-- [x] R1 — Run Spin (variants 3/4, 2/4, 4/8: safety + 3 LTL) via Docker, commit
+- [x] R1 — Run Spin (variants 3/4, 2/4, 4/4 — 4/8 aborted, see evidence: safety + 3 LTL) via Docker, commit
       `results/promela/*`, update `docs/pc2/02-modelo-promela.md`; make
       `run_spin.ps1` fail on non-zero native exit codes. Route: inline (commands).
 - [x] R2 — Replace `TODO(equipo)` in `docs/pc2/03`–`06` with the report's official
@@ -61,6 +61,11 @@ the gaps that can be closed from the repository.
 - R2/R3 done (delegated writer, trigger: 2+ non-trivial files). Karp–Flatt e: p2 0.0176,
   p4 0.0308, p8 0.1000, p12 0.1353, p16 0.1518, p24 0.1712, p32 0.1799 (parent re-checked
   p16/p24/p32). `grep TODO(equipo) docs` empty; `go vet ./...` clean; `go test ./...` ok.
+
+- Review review-9ebd7673f81d6276 (4 lenses, consent granted): approved, acknowledged, authority
+  burned. Follow-up for advisory findings R2-1, R2-2, R3-1, R4-002: scripts now fail when pan
+  output lacks `errors: 0` (tested: real file ok, fake `errors: 3` rejected; Docker 2/4 run exit 0).
+  R2-3 dismissed (flags already default). R1-001/R1-002/R3-2/R4-001/R4-003 left as informational.
 
 ## Next step
 - Push branch and open PR to `develop` (user decision).

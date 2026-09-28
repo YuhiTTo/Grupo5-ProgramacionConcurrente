@@ -48,6 +48,14 @@ function Assert-LastExitCode([string]$Step) {
     }
 }
 
+# pan termina con código 0 aunque encuentre violaciones; el
+# resultado real está en la línea "errors: N" de su salida.
+function Assert-NoErrors([string]$Path) {
+    if (-not (Select-String -Path $Path -Pattern 'errors: 0(\D|$)' -Quiet)) {
+        throw "FALLO: $Path no reporta 'errors: 0'"
+    }
+}
+
 Write-Host "== Verificando NUM_WORKERS=$Workers NUM_JOBS=$Jobs =="
 
 Push-Location $WorkDir
@@ -65,6 +73,7 @@ try {
     Assert-LastExitCode "gcc (seguridad)"
     & .\pan.exe | Tee-Object -FilePath (Join-Path $OutDir "${Prefix}_safety.txt")
     Assert-LastExitCode "pan (seguridad)"
+    Assert-NoErrors (Join-Path $OutDir "${Prefix}_safety.txt")
 
     # 3) Compilar (sin -DSAFETY) y correr cada propiedad LTL
     #    por separado con -N <nombre>.
@@ -75,6 +84,7 @@ try {
         Write-Host "-- LTL: $ltlName --"
         & .\pan.exe -a -N $ltlName | Tee-Object -FilePath (Join-Path $OutDir "${Prefix}_ltl_${ltlName}.txt")
         Assert-LastExitCode "pan (LTL $ltlName)"
+        Assert-NoErrors (Join-Path $OutDir "${Prefix}_ltl_${ltlName}.txt")
     }
 }
 finally {

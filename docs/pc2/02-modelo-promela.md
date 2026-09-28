@@ -128,7 +128,7 @@ Es la forma en que se generaron los resultados de abajo (Windows sin
 Spin/gcc instalados, con Docker Desktop):
 
 ```bash
-docker run --rm -v "$PWD":/work -w /work debian:stable-slim bash -c \
+docker run --rm -v "$PWD":/work -w /work debian:stable-slim bash -ec \
   'apt-get update -qq && apt-get install -y -qq spin gcc libc6-dev && \
    for v in "3 4" "2 4" "4 4"; do bash promela/run_spin.sh $v; done'
 ```
