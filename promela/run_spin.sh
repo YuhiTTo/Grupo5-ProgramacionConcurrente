@@ -46,8 +46,10 @@ spin -a -DNUM_WORKERS="${WORKERS}" -DNUM_JOBS="${JOBS}" "$MODEL"
 
 # 2) Compilar y correr la verificación de seguridad
 #    (deadlock, invalid end states, assertion violations).
-gcc -DSAFETY -o pan pan.c
-./pan -a | tee "$OUT_DIR/${PREFIX}_safety.txt"
+#    -DNOCLAIM ignora las fórmulas ltl del modelo para que
+#    esta corrida sea un chequeo puro de seguridad.
+gcc -DSAFETY -DNOCLAIM -o pan pan.c
+./pan | tee "$OUT_DIR/${PREFIX}_safety.txt"
 
 # 3) Compilar (sin -DSAFETY) y correr cada propiedad LTL
 #    por separado con -N <nombre>. -a mantiene la búsqueda

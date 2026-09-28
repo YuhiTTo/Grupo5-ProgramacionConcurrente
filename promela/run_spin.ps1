@@ -50,8 +50,10 @@ try {
 
     # 2) Compilar y correr la verificación de seguridad
     #    (deadlock, invalid end states, assertion violations).
-    gcc -DSAFETY -o pan.exe pan.c
-    & .\pan.exe -a | Tee-Object -FilePath (Join-Path $OutDir "${Prefix}_safety.txt")
+    #    -DNOCLAIM ignora las fórmulas ltl del modelo para que
+    #    esta corrida sea un chequeo puro de seguridad.
+    gcc -DSAFETY -DNOCLAIM -o pan.exe pan.c
+    & .\pan.exe | Tee-Object -FilePath (Join-Path $OutDir "${Prefix}_safety.txt")
 
     # 3) Compilar (sin -DSAFETY) y correr cada propiedad LTL
     #    por separado con -N <nombre>.
