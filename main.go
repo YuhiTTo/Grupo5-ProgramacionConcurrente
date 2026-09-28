@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"time"
 )
@@ -174,6 +175,17 @@ func main() {
 
 	const epochs = 100
 	const learningRate = 0.01
+
+	if len(os.Args) > 1 && os.Args[1] == "cpu-profile" {
+
+		runCPUProfile(
+			trainData,
+			featureSchema.FeatureCount,
+			learningRate,
+		)
+
+		return
+	}
 
 	sequentialModel :=
 		newLinearRegression(
@@ -439,6 +451,85 @@ func main() {
 			result.TrimmedMean,
 			result.Speedup,
 			result.Efficiency,
+		)
+	}
+
+	const resourceRuns = 3
+
+	fmt.Println()
+	fmt.Println("======================================")
+	fmt.Println(" PERFIL DE RECURSOS")
+	fmt.Println("======================================")
+
+	fmt.Printf(
+		"Ejecuciones por configuración: %d\n",
+		resourceRuns,
+	)
+
+	resourceResults :=
+		make([]ResourceProfileResult, 0)
+
+	sequentialResources :=
+		profileSequentialResources(
+			trainData,
+			featureSchema.FeatureCount,
+			epochs,
+			learningRate,
+			resourceRuns,
+		)
+
+	resourceResults =
+		append(
+			resourceResults,
+			sequentialResources,
+		)
+
+	for _, workers := range workerConfigurations {
+
+		result :=
+			profileConcurrentResources(
+				trainData,
+				featureSchema.FeatureCount,
+				epochs,
+				learningRate,
+				workers,
+				resourceRuns,
+			)
+
+		resourceResults =
+			append(
+				resourceResults,
+				result,
+			)
+	}
+
+	fmt.Println()
+	fmt.Println("======================================")
+	fmt.Println(" RESUMEN DE RECURSOS")
+	fmt.Println("======================================")
+
+	for _, result := range resourceResults {
+
+		if result.Workers == 0 {
+
+			fmt.Printf(
+				"Secuencial | Peak Heap: %.2f MB | Alloc: %.2f MB | Mallocs: %.0f | GC: %.2f\n",
+				result.PeakHeapMB,
+				result.AllocatedMB,
+				result.AverageMallocs,
+				result.AverageGC,
+			)
+
+			continue
+		}
+
+		fmt.Printf(
+			"%2d workers | Peak Heap: %.2f MB | Alloc: %.2f MB | Mallocs: %.0f | GC: %.2f\n",
+			result.Workers,
+			result.PeakHeapMB,
+			result.AllocatedMB,
+			result.AverageMallocs,
+			result.AverageGC,
 		)
 	}
 }
