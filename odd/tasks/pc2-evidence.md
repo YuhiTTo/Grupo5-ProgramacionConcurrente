@@ -204,3 +204,17 @@ Code is sound but all results go to stdout only; rubric points 3-6 (11/20 pts) l
   all require running with the real dataset (absent locally) and,
   for Promela, a Spin/gcc installation (absent locally).
 - Commit: c3168bb.
+
+## Review outcomes (RDD)
+- Slice 1 (acf470c..a89149e, T1-T3): medium risk, consent granted, 1 lens (reliability) -> approved, acknowledged (lineage review-77224a82d4119e82). Advisory findings addressed in T6 (CV precision, zero-speedup equilibrium, warmup test).
+- Slice 2 (a89149e..83a00f5, T4-T6 + spin script fixes e080a5d, 83a00f5): high risk, consent granted, 4 lenses -> approved, acknowledged (lineage review-7ccb291d1921ad34). Non-blocking follow-ups:
+  - R3-1: run_spin.ps1 does not check $LASTEXITCODE of spin/gcc/pan.
+  - R3-2: LTL properties not yet executed in Spin (tool absent locally).
+  - R2-1/R2-2: comment jobs channel sizing (+NUM_WORKERS for STOP signals); in_update/updating naming.
+  - R4: run_spin.sh has no trap cleanup of pan/pan.c.
+
+## Next step (team)
+1. Download the clean dataset (see dataset/) and run `go run . -mode=all` on one machine with nothing else open; commit `results/`.
+2. Run `promela/run_spin.sh` (WSL/Docker/Linux) for 3/4, 2/4, 4/8; commit `results/promela/`.
+3. Fill the `TODO(equipo)` placeholders in docs/pc2/04 and 05; take screenshots listed in docs/pc2/06-evidencias.md.
+4. Open PR feature/pc2-evidence -> develop; later release/pc2 -> main (gitflow).
