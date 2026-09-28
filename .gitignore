@@ -29,3 +29,9 @@ Thumbs.db
 # Office temporary files
 ~$*.docx
 ~$*.pptx
+
+# Perfiles de CPU (pprof) generados por `-mode=cpu-profile`: son
+# binarios pesados y no reproducibles bit a bit entre corridas.
+# El resto de la evidencia de results/ (benchmark/*.csv, *.md,
+# resources/*.csv, environment.md) SÍ debe poder commitearse.
+results/cpu/*.prof

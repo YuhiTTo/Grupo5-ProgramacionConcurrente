@@ -1,5 +1,11 @@
+#ifndef NUM_WORKERS
 #define NUM_WORKERS 3
+#endif
+
+#ifndef NUM_JOBS
 #define NUM_JOBS 4
+#endif
+
 #define STOP 255
 
 /*
@@ -24,10 +30,17 @@
     matemáticas de Gradient Descent.
 
     El objetivo es verificar la sincronización.
+
+    NUM_WORKERS y NUM_JOBS son configurables en tiempo de
+    compilación con -D (ver promela/run_spin.sh y
+    run_spin.ps1), p. ej.:
+
+        spin -a -DNUM_WORKERS=2 -DNUM_JOBS=4 regression_workers.pml
+        spin -a -DNUM_WORKERS=4 -DNUM_JOBS=8 regression_workers.pml
 */
 
-chan jobs = [7] of { byte };
-chan results = [4] of { byte };
+chan jobs = [NUM_JOBS + NUM_WORKERS] of { byte };
+chan results = [NUM_JOBS] of { byte };
 
 /*
     processed[job] indica si el job fue procesado.
@@ -44,6 +57,32 @@ byte result_count = 0;
 
 bool weights_updated = false;
 
+/*
+    in_update cuenta cuántos procesos están, en un
+    instante dado, dentro de la sección crítica que
+    actualiza los pesos globales (equivalente a la
+    región entre wg.Wait() y el fin del epoch en
+    concurrent.go, donde SOLO el Coordinator escribe
+    model.Weights/model.Bias).
+
+    updating es verdadero mientras esa sección crítica
+    está activa. Ningún Worker participa de ella: los
+    Workers solo leen los pesos (antes del epoch) y
+    producen gradientes parciales privados, por lo que
+    no existe una condición de carrera real que exija un
+    Mutex explícito en Go. El modelo verifica formalmente
+    esa propiedad (mutex/exclusión mutua) en vez de
+    asumirla.
+*/
+byte in_update = 0;
+bool updating = false;
+
+/*
+    done se activa cuando el Coordinator terminó todo el
+    ciclo (reduce + update). Se usa para la propiedad LTL
+    de terminación (ausencia de deadlock/livelock).
+*/
+bool done = false;
 
 /*
     Cada Worker consume jobs del canal.
@@ -214,10 +253,57 @@ init
 
         Los Workers nunca modifican los
         pesos globales directamente.
-    */
-    weights_updated = true;
 
+        Entrar/salir de la sección crítica de
+        actualización se modela de forma atómica
+        para poder verificar exclusión mutua
+        (mutex) sobre in_update, análogo a la
+        región de concurrent.go entre wg.Wait()
+        y el fin del epoch.
+    */
+    atomic {
+        in_update++;
+        updating = true;
+    }
+
+    weights_updated = true;
 
     assert(weights_updated);
     assert(result_count == NUM_JOBS);
+
+    atomic {
+        updating = false;
+        in_update--;
+    }
+
+    done = true;
 }
+
+/*
+    Propiedades LTL
+    ================
+
+    safe_update: cada vez que el Coordinator está
+    actualizando los pesos (updating), YA se recibieron
+    todos los gradientes parciales (result_count ==
+    NUM_JOBS). Equivale a "nunca se actualiza con datos
+    incompletos", el invariante central del wg.Wait()
+    antes de la actualización en concurrent.go.
+
+    termination: eventualmente el Coordinator termina
+    todo el ciclo (done se vuelve verdadero). Ausencia de
+    deadlock/livelock para este modelo.
+
+    mutex: en todo momento, a lo sumo un proceso está
+    dentro de la sección crítica de actualización de
+    pesos (in_update <= 1). Verifica formalmente que no
+    hace falta un Mutex adicional en Go: la exclusión ya
+    está garantizada por diseño (solo el Coordinator
+    entra a esa sección, después de wg.Wait()).
+
+    Ejecutar con -N <nombre> selecciona una sola fórmula
+    por corrida de pan (ver run_spin.sh / run_spin.ps1).
+*/
+ltl safe_update { [] (updating -> result_count == NUM_JOBS) }
+ltl termination { <> done }
+ltl mutex { [] (in_update <= 1) }
