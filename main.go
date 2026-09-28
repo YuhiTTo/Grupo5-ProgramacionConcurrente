@@ -208,14 +208,18 @@ func runPipeline(config Config) {
 	}
 
 	if config.Mode == "quick" || config.Mode == "all" {
-		runQuickComparison(
+		if err := runQuickComparison(
 			trainData,
 			testData,
 			featureSchema,
 			scalingParameters,
 			config,
 			learningRate,
-		)
+		); err != nil {
+			fmt.Println()
+			fmt.Println("Error: verificación de equivalencia falló:", err)
+			os.Exit(1)
+		}
 	}
 
 	if config.Mode == "benchmark" || config.Mode == "all" {
@@ -244,7 +248,7 @@ func runQuickComparison(
 	scalingParameters ScalingParameters,
 	config Config,
 	learningRate float64,
-) {
+) error {
 
 	sequentialModel :=
 		newLinearRegression(
@@ -414,6 +418,30 @@ func runQuickComparison(
 		"R² concurrente: %.6f\n",
 		concurrentMetrics.R2,
 	)
+
+	const equivalenceTolerance = 1e-9
+
+	equivalenceErr := verifyEquivalence(
+		sequentialModel,
+		concurrentModel,
+		equivalenceTolerance,
+	)
+
+	if equivalenceErr != nil {
+		fmt.Println()
+		fmt.Println(" VERIFICACIÓN DE EQUIVALENCIA: FALLÓ")
+		fmt.Printf("Tolerancia: %.12f\n", equivalenceTolerance)
+
+		return equivalenceErr
+	}
+
+	fmt.Println()
+	fmt.Printf(
+		"Verificación de equivalencia: OK (diferencia máxima <= %.12f)\n",
+		equivalenceTolerance,
+	)
+
+	return nil
 }
 
 func runBenchmarkMode(
@@ -450,6 +478,8 @@ func runBenchmarkMode(
 			config.Epochs,
 			learningRate,
 			config.Runs,
+			config.Warmup,
+			config.TrimFraction,
 		)
 
 	benchmarkResults :=
@@ -469,11 +499,13 @@ func runBenchmarkMode(
 				learningRate,
 				workers,
 				config.Runs,
+				config.Warmup,
+				config.TrimFraction,
 			)
 
 		result.Speedup =
-			sequentialBenchmark.TrimmedMean.Seconds() /
-				result.TrimmedMean.Seconds()
+			sequentialBenchmark.Stats.TrimmedMean.Seconds() /
+				result.Stats.TrimmedMean.Seconds()
 
 		result.Efficiency =
 			result.Speedup /
@@ -493,7 +525,7 @@ func runBenchmarkMode(
 
 	fmt.Printf(
 		"Secuencial | Media recortada: %v | Speedup: 1.0000x\n",
-		sequentialBenchmark.TrimmedMean,
+		sequentialBenchmark.Stats.TrimmedMean,
 	)
 
 	for _, result := range benchmarkResults {
@@ -501,7 +533,7 @@ func runBenchmarkMode(
 		fmt.Printf(
 			"%2d workers | Media: %v | Speedup: %.4fx | Eficiencia: %.4f\n",
 			result.Workers,
-			result.TrimmedMean,
+			result.Stats.TrimmedMean,
 			result.Speedup,
 			result.Efficiency,
 		)
