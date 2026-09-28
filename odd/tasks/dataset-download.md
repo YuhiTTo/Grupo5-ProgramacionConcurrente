@@ -15,7 +15,7 @@ Datasets (clean 244,031,060 B; raw 947,122,735 B) live on Google Drive and are g
 ## Tasks
 - [x] D1 Secure downloader (`dataset_download.go`) + tests. Route: delegated (2+ non-trivial files).
 - [x] D2 CLI wiring: `-mode=download` (+ which dataset), auto-download clean dataset when missing for data modes, `-no-download` opt-out; tests. Route: delegated.
-- [ ] D3 Docs: dataset/README.md, README.md, `dataset/SHA256SUMS` for manual verification. Route: delegated.
+- [x] D3 Docs: dataset/README.md, README.md, `dataset/SHA256SUMS` for manual verification. Route: delegated.
 
 ## Acceptance
 - `go vet`, `go build`, `go test ./...` green.
@@ -39,4 +39,11 @@ Datasets (clean 244,031,060 B; raw 947,122,735 B) live on Google Drive and are g
 - GREEN: `go test ./... -run "TestParseConfigDownload|TestParseConfigModeDownload|TestParseConfigInvalidDownloadTarget|TestEnsureNamedDatasetAvailable|TestEnsureCleanDatasetAvailable|TestDownloadTargets" -v` all PASS; full suite `go test ./... -count=1` PASS (68+ tests, no regressions), `go vet ./...` clean, `go build ./...` clean, `gofmt -l` clean on touched files.
 - Verified manually: `go run . -h` lists the new flags; `go run . cpu-profile -no-download` (legacy positional) still maps to `-mode=cpu-profile` and now correctly reports the actionable no-download error instead of a raw CSV-read failure.
 - Incident (self-caught, corrected): an earlier manual smoke check (`go run . cpu-profile -epochs=1 | head -5`) triggered the real auto-download path since no dataset file existed locally and `-no-download` wasn't passed; the ~244 MB file was fully fetched and verified (hash matched) before being deleted immediately, since the real end-to-end download was explicitly reserved for the parent to run. All later manual checks used `-no-download` to stay network-free. No commit or artifact includes that file; `dataset/*.csv` stays gitignored.
+- Commit: `1365a67`
+
+### D3 — Docs
+- `dataset/SHA256SUMS`: two lines, standard `sha256sum -c` format (`<hash>  <filename>`, filenames relative to `dataset/`), for the pinned clean and raw hashes. Confirmed NOT gitignored: `git check-ignore -v dataset/SHA256SUMS` exited 1 (not ignored) — the `dataset/*.csv` rule only matches `.csv`.
+- `dataset/README.md`: added an "automatic download" section (`go run . -mode=download`, `-download=raw|all`, auto-download-on-missing behavior, `-no-download`), what is verified (HTTPS + host allowlist, non-200/HTML rejection, size, SHA-256, atomic `.part` + rename), the manual alternative (Drive links, exact expected filenames), manual verification commands for Linux/macOS (`sha256sum -c` / `shasum -a 256 -c`) and Windows PowerShell (`Get-FileHash -Algorithm SHA256`), why `.csv` files are never committed, and the procedure to update the pinned hash/size if the Drive file is ever replaced.
+- Root `README.md`: Dataset section now leads with `go run . -mode=download` (+ `-download=raw|all`, `-no-download`) and links to `dataset/README.md` for detail; flags table gained `-download` and `-no-download`; Modos list gained `download`.
+- No code changes in this task; full suite re-verified after the doc edits: `gofmt -l` clean (touched files only — pre-existing CRLF-flagged files from D1 untouched), `go vet ./...` clean, `go build ./...` clean, `go test ./... -count=1` PASS.
 - Commit: (recorded after commit below)
