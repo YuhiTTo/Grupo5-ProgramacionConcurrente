@@ -20,7 +20,7 @@
 .EXAMPLE
     ./run_spin.ps1
     ./run_spin.ps1 -Workers 2 -Jobs 4
-    ./run_spin.ps1 -Workers 4 -Jobs 8
+    ./run_spin.ps1 -Workers 4 -Jobs 4
 #>
 
 param(
@@ -40,6 +40,14 @@ New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null
 
 $Prefix = "w${Workers}_j${Jobs}"
 
+# $ErrorActionPreference no detiene el script cuando falla un
+# ejecutable nativo; se revisa $LASTEXITCODE explícitamente.
+function Assert-LastExitCode([string]$Step) {
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Step falló con código de salida $LASTEXITCODE"
+    }
+}
+
 Write-Host "== Verificando NUM_WORKERS=$Workers NUM_JOBS=$Jobs =="
 
 Push-Location $WorkDir
@@ -47,21 +55,26 @@ try {
     # 1) Generar el verificador C a partir del modelo, con las
     #    defines de la variante actual.
     spin -a -DNUM_WORKERS=$Workers -DNUM_JOBS=$Jobs $Model
+    Assert-LastExitCode "spin -a"
 
     # 2) Compilar y correr la verificación de seguridad
     #    (deadlock, invalid end states, assertion violations).
     #    -DNOCLAIM ignora las fórmulas ltl del modelo para que
     #    esta corrida sea un chequeo puro de seguridad.
     gcc -DSAFETY -DNOCLAIM -o pan.exe pan.c
+    Assert-LastExitCode "gcc (seguridad)"
     & .\pan.exe | Tee-Object -FilePath (Join-Path $OutDir "${Prefix}_safety.txt")
+    Assert-LastExitCode "pan (seguridad)"
 
     # 3) Compilar (sin -DSAFETY) y correr cada propiedad LTL
     #    por separado con -N <nombre>.
     gcc -o pan.exe pan.c
+    Assert-LastExitCode "gcc (LTL)"
 
     foreach ($ltlName in @("safe_update", "termination", "mutex")) {
         Write-Host "-- LTL: $ltlName --"
         & .\pan.exe -a -N $ltlName | Tee-Object -FilePath (Join-Path $OutDir "${Prefix}_ltl_${ltlName}.txt")
+        Assert-LastExitCode "pan (LTL $ltlName)"
     }
 }
 finally {

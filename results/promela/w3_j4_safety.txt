@@ -1,0 +1,47 @@
+
+(Spin Version 6.5.2 -- 6 December 2019)
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	- (not selected)
+	assertion violations	+
+	cycle checks       	- (disabled by -DSAFETY)
+	invalid end states	+
+
+State-vector 80 byte, depth reached 123, errors: 0
+   145563 states, stored
+    98941 states, matched
+   244504 transitions (= stored+matched)
+       12 atomic steps
+hash conflicts:       215 (resolved)
+
+Stats on memory usage (in Megabytes):
+   14.993	equivalent memory usage for states (stored*(State-vector + overhead))
+   10.246	actual memory usage for states (compression: 68.34%)
+         	state-vector as stored = 46 byte + 28 byte overhead
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  138.690	total actual memory usage
+
+
+unreached in proctype Worker
+	(0 of 15 states)
+unreached in init
+	(0 of 63 states)
+unreached in claim safe_update
+	_spin_nvr.tmp:3, state 6, "(!((!(updating)||(result_count==4))))"
+	_spin_nvr.tmp:3, state 6, "(1)"
+	_spin_nvr.tmp:8, state 10, "-end-"
+	(2 of 10 states)
+unreached in claim termination
+	_spin_nvr.tmp:13, state 3, "(!(done))"
+	_spin_nvr.tmp:15, state 6, "-end-"
+	(2 of 6 states)
+unreached in claim mutex
+	_spin_nvr.tmp:19, state 6, "(!((in_update<=1)))"
+	_spin_nvr.tmp:19, state 6, "(1)"
+	_spin_nvr.tmp:24, state 10, "-end-"
+	(2 of 10 states)
+
+pan: elapsed time 0.37 seconds
+pan: rate 393413.51 states/second

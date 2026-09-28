@@ -13,7 +13,8 @@
 # Uso:
 #   ./run_spin.sh                              # NUM_WORKERS=3, NUM_JOBS=4 (defaults del modelo)
 #   ./run_spin.sh 2 4                          # NUM_WORKERS=2, NUM_JOBS=4
-#   ./run_spin.sh 4 8                          # NUM_WORKERS=4, NUM_JOBS=8
+#   ./run_spin.sh 4 4                          # NUM_WORKERS=4, NUM_JOBS=4
+#   (4 8 supera 34M estados / 3 GB sin terminar; ver docs/pc2/02)
 #
 # Salidas guardadas en results/promela/, con nombres que
 # incluyen la variante NUM_WORKERS/NUM_JOBS, p. ej.:
