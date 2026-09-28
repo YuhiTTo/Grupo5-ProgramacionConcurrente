@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"time"
@@ -23,12 +25,138 @@ func main() {
 		os.Exit(1)
 	}
 
+	if config.Mode == "download" {
+		if err := runDownloadMode(config); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
+
+		return
+	}
+
 	if config.Mode == "clean" {
+		if err := ensureRawDatasetAvailable(config); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
+
 		runCleaning()
 		return
 	}
 
+	if err := ensureCleanDatasetAvailable(config); err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+
 	runPipeline(config)
+}
+
+// runDownloadMode implementa `-mode=download`: descarga el/los
+// dataset(s) seleccionados por -download (clean|raw|all).
+func runDownloadMode(config Config) error {
+	return runDownloadTargets(downloadTargets(config.DownloadTarget), os.Stdout)
+}
+
+// runDownloadTargets descarga cada dataset nombrado en targets usando
+// el cliente HTTP real y el allowlist de producción.
+func runDownloadTargets(targets []string, out io.Writer) error {
+	ctx := context.Background()
+	client := newDatasetHTTPClient()
+
+	for _, name := range targets {
+		spec, ok := datasetSpecs[name]
+
+		if !ok {
+			return fmt.Errorf("dataset desconocido: %q", name)
+		}
+
+		if _, err := ensureDataset(ctx, client, spec, defaultDatasetAllowlist, out); err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+// downloadTargets traduce el valor de -download (clean|raw|all) a la
+// lista de nombres de dataset a procesar.
+func downloadTargets(target string) []string {
+	switch target {
+	case "raw":
+		return []string{"raw"}
+	case "all":
+		return []string{"clean", "raw"}
+	default:
+		return []string{"clean"}
+	}
+}
+
+// ensureCleanDatasetAvailable garantiza que el dataset limpio usado por
+// el pipeline de regresión exista antes de correrlo. Si -dataset
+// apunta a la ruta por defecto y el archivo falta, se descarga
+// automáticamente (salvo -no-download). Una ruta -dataset
+// personalizada nunca se auto-descarga: solo se valida su presencia.
+func ensureCleanDatasetAvailable(config Config) error {
+	if config.DatasetPath != cleanDatasetPath {
+		if fileExists(config.DatasetPath) {
+			return nil
+		}
+
+		return fmt.Errorf(
+			"el dataset %q no existe; colóquelo manualmente en esa ruta o pase una ruta válida con -dataset",
+			config.DatasetPath,
+		)
+	}
+
+	return ensureNamedDatasetAvailable(cleanDatasetPath, "clean", "el dataset limpio", config.NoDownload)
+}
+
+// ensureRawDatasetAvailable garantiza que el dataset original (crudo)
+// usado por `-mode=clean` exista, descargándolo automáticamente si
+// falta (salvo -no-download). Su ruta no es configurable vía flag.
+func ensureRawDatasetAvailable(config Config) error {
+	return ensureNamedDatasetAvailable(inputCSVPath, "raw", "el dataset original", config.NoDownload)
+}
+
+// ensureNamedDatasetAvailable es el helper común: si path ya existe no
+// hace nada; si falta y noDownload está activo devuelve un error
+// accionable; si falta y se permite descargar, descarga el dataset
+// registrado bajo specName en datasetSpecs.
+func ensureNamedDatasetAvailable(path string, specName string, humanName string, noDownload bool) error {
+	if fileExists(path) {
+		return nil
+	}
+
+	if noDownload {
+		return fmt.Errorf(
+			"%s no existe en %q; ejecute 'go run . -mode=download -download=%s' para descargarlo (o quite -no-download)",
+			humanName, path, specName,
+		)
+	}
+
+	fmt.Printf("%s no encontrado en %q, descargando automáticamente...\n", humanName, path)
+
+	spec, ok := datasetSpecs[specName]
+
+	if !ok {
+		return fmt.Errorf("dataset desconocido: %q", specName)
+	}
+
+	_, err := ensureDataset(
+		context.Background(),
+		newDatasetHTTPClient(),
+		spec,
+		defaultDatasetAllowlist,
+		os.Stdout,
+	)
+
+	return err
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func runPipeline(config Config) {

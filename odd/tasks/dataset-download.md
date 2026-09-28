@@ -14,7 +14,7 @@ Datasets (clean 244,031,060 B; raw 947,122,735 B) live on Google Drive and are g
 
 ## Tasks
 - [x] D1 Secure downloader (`dataset_download.go`) + tests. Route: delegated (2+ non-trivial files).
-- [ ] D2 CLI wiring: `-mode=download` (+ which dataset), auto-download clean dataset when missing for data modes, `-no-download` opt-out; tests. Route: delegated.
+- [x] D2 CLI wiring: `-mode=download` (+ which dataset), auto-download clean dataset when missing for data modes, `-no-download` opt-out; tests. Route: delegated.
 - [ ] D3 Docs: dataset/README.md, README.md, `dataset/SHA256SUMS` for manual verification. Route: delegated.
 
 ## Acceptance
@@ -30,4 +30,13 @@ Datasets (clean 244,031,060 B; raw 947,122,735 B) live on Google Drive and are g
 - GREEN: `go test ./... -run "TestEnsureDataset|TestVerifyFile|TestHostAllowed|TestDatasetSpecsRegistry" -v` — all 13 tests + subtests PASS.
 - Full suite: `go vet ./...` clean, `go build ./...` clean, `go test ./... -count=1` PASS (no regressions).
 - Note: `gofmt -l` flags several pre-existing files (cleaning.go, concurrent.go, dataset.go, preprocessing.go, regression.go, scaling.go, sequential.go) due to CRLF line endings from `core.autocrlf`; unrelated to this change, left untouched. New files (`dataset_download.go`, `dataset_download_test.go`) are gofmt-clean.
+- Commit: `be115f6`
+
+### D2 — CLI wiring
+- TDD: added flag-parsing tests to `config_test.go` (`TestParseConfigDownloadDefaults`, `TestParseConfigModeDownload`, `TestParseConfigDownloadAllAndNoDownload`, `TestParseConfigInvalidDownloadTarget`) and wiring tests in `main_test.go` (`TestEnsureNamedDatasetAvailable_*`, `TestEnsureCleanDatasetAvailable_*`, `TestDownloadTargets`) before implementing.
+- RED: editor diagnostics confirmed `config.DownloadTarget`/`config.NoDownload` undefined before the `Config` struct was extended.
+- Implemented: `-mode=download` (new valid mode), `-download=clean|raw|all` (default `clean`), `-no-download` bool flag; `Config.validate()` rejects an invalid `-download` value. `main()` routes `-mode=download` to `runDownloadMode` (real network, not exercised by tests) and `-mode=clean` / all other modes through `ensureRawDatasetAvailable` / `ensureCleanDatasetAvailable` before running. `ensureCleanDatasetAvailable` only auto-downloads when `-dataset` is exactly the default clean path; a custom `-dataset` that is missing errors with guidance instead of downloading to an arbitrary path. `-no-download` yields an actionable error pointing at `go run . -mode=download`.
+- GREEN: `go test ./... -run "TestParseConfigDownload|TestParseConfigModeDownload|TestParseConfigInvalidDownloadTarget|TestEnsureNamedDatasetAvailable|TestEnsureCleanDatasetAvailable|TestDownloadTargets" -v` all PASS; full suite `go test ./... -count=1` PASS (68+ tests, no regressions), `go vet ./...` clean, `go build ./...` clean, `gofmt -l` clean on touched files.
+- Verified manually: `go run . -h` lists the new flags; `go run . cpu-profile -no-download` (legacy positional) still maps to `-mode=cpu-profile` and now correctly reports the actionable no-download error instead of a raw CSV-read failure.
+- Incident (self-caught, corrected): an earlier manual smoke check (`go run . cpu-profile -epochs=1 | head -5`) triggered the real auto-download path since no dataset file existed locally and `-no-download` wasn't passed; the ~244 MB file was fully fetched and verified (hash matched) before being deleted immediately, since the real end-to-end download was explicitly reserved for the parent to run. All later manual checks used `-no-download` to stay network-free. No commit or artifact includes that file; `dataset/*.csv` stays gitignored.
 - Commit: (recorded after commit below)

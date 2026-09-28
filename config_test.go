@@ -199,3 +199,59 @@ func TestParseConfigModeFlagOverridesLegacy(t *testing.T) {
 		t.Errorf("Mode = %q, se esperaba %q", config.Mode, "quick")
 	}
 }
+
+func TestParseConfigDownloadDefaults(t *testing.T) {
+	config, err := parseConfig(nil)
+
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+
+	if config.DownloadTarget != "clean" {
+		t.Errorf("DownloadTarget = %q, se esperaba %q", config.DownloadTarget, "clean")
+	}
+
+	if config.NoDownload {
+		t.Error("NoDownload = true, se esperaba false por defecto")
+	}
+}
+
+func TestParseConfigModeDownload(t *testing.T) {
+	config, err := parseConfig([]string{"-mode=download", "-download=raw"})
+
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+
+	if config.Mode != "download" {
+		t.Errorf("Mode = %q, se esperaba %q", config.Mode, "download")
+	}
+
+	if config.DownloadTarget != "raw" {
+		t.Errorf("DownloadTarget = %q, se esperaba %q", config.DownloadTarget, "raw")
+	}
+}
+
+func TestParseConfigDownloadAllAndNoDownload(t *testing.T) {
+	config, err := parseConfig([]string{"-download=all", "-no-download"})
+
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+
+	if config.DownloadTarget != "all" {
+		t.Errorf("DownloadTarget = %q, se esperaba %q", config.DownloadTarget, "all")
+	}
+
+	if !config.NoDownload {
+		t.Error("NoDownload = false, se esperaba true")
+	}
+}
+
+func TestParseConfigInvalidDownloadTarget(t *testing.T) {
+	_, err := parseConfig([]string{"-download=bogus"})
+
+	if err == nil {
+		t.Fatal("se esperaba un error para -download inválido")
+	}
+}
