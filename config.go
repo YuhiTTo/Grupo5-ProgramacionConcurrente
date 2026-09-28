@@ -26,30 +26,41 @@ var validModes = map[string]bool{
 	"cpu-profile": true,
 	"clean":       true,
 	"all":         true,
+	"download":    true,
+}
+
+var validDownloadTargets = map[string]bool{
+	"clean": true,
+	"raw":   true,
+	"all":   true,
 }
 
 // Config agrupa todas las opciones configurables del CLI.
 type Config struct {
-	Mode         string
-	Runs         int
-	Warmup       int
-	Epochs       int
-	Workers      []int
-	TrimFraction float64
-	OutDir       string
-	DatasetPath  string
+	Mode           string
+	Runs           int
+	Warmup         int
+	Epochs         int
+	Workers        []int
+	TrimFraction   float64
+	OutDir         string
+	DatasetPath    string
+	DownloadTarget string
+	NoDownload     bool
 }
 
 func defaultConfig() Config {
 	return Config{
-		Mode:         "all",
-		Runs:         defaultRuns,
-		Warmup:       defaultWarmup,
-		Epochs:       defaultEpochs,
-		Workers:      append([]int(nil), defaultWorkerConfigurations...),
-		TrimFraction: defaultTrimFraction,
-		OutDir:       defaultOutDir,
-		DatasetPath:  cleanDatasetPath,
+		Mode:           "all",
+		Runs:           defaultRuns,
+		Warmup:         defaultWarmup,
+		Epochs:         defaultEpochs,
+		Workers:        append([]int(nil), defaultWorkerConfigurations...),
+		TrimFraction:   defaultTrimFraction,
+		OutDir:         defaultOutDir,
+		DatasetPath:    cleanDatasetPath,
+		DownloadTarget: "clean",
+		NoDownload:     false,
 	}
 }
 
@@ -73,7 +84,7 @@ func parseConfig(args []string) (Config, error) {
 	modeFlag := flagSet.String(
 		"mode",
 		config.Mode,
-		"modo de ejecución: quick|benchmark|resources|cpu-profile|clean|all",
+		"modo de ejecución: quick|benchmark|resources|cpu-profile|clean|all|download",
 	)
 
 	runsFlag := flagSet.Int(
@@ -118,6 +129,18 @@ func parseConfig(args []string) (Config, error) {
 		"ruta al dataset limpio (CSV)",
 	)
 
+	downloadFlag := flagSet.String(
+		"download",
+		config.DownloadTarget,
+		"con -mode=download, qué dataset descargar: clean|raw|all",
+	)
+
+	noDownloadFlag := flagSet.Bool(
+		"no-download",
+		config.NoDownload,
+		"deshabilita la descarga automática del dataset faltante",
+	)
+
 	if err := flagSet.Parse(args); err != nil {
 		return Config{}, err
 	}
@@ -129,6 +152,8 @@ func parseConfig(args []string) (Config, error) {
 	config.TrimFraction = *trimFlag
 	config.OutDir = *outFlag
 	config.DatasetPath = *datasetFlag
+	config.DownloadTarget = *downloadFlag
+	config.NoDownload = *noDownloadFlag
 
 	workers, err := parseWorkerList(*workersFlag)
 
@@ -189,8 +214,15 @@ func joinInts(values []int) string {
 func (config Config) validate() error {
 	if !validModes[config.Mode] {
 		return fmt.Errorf(
-			"modo inválido %q: use quick|benchmark|resources|cpu-profile|clean|all",
+			"modo inválido %q: use quick|benchmark|resources|cpu-profile|clean|all|download",
 			config.Mode,
+		)
+	}
+
+	if !validDownloadTargets[config.DownloadTarget] {
+		return fmt.Errorf(
+			"-download inválido %q: use clean|raw|all",
+			config.DownloadTarget,
 		)
 	}
 

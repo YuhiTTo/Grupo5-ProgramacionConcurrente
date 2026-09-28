@@ -12,14 +12,27 @@ Documentación completa de la evidencia de la PC2: [`docs/pc2/`](docs/pc2/README
 ## Dataset
 
 El CSV original (~947 MB) no se versiona por el límite de 100 MB de
-GitHub (ver `.gitignore` y `dataset/README.md`). Descargar desde:
+GitHub (ver `.gitignore` y `dataset/README.md`). Forma recomendada,
+descarga automática y verificada (HTTPS, host permitido, tamaño y
+SHA-256 fijados; sin dependencias fuera de la librería estándar):
 
-- Dataset original: <https://drive.google.com/file/d/1Tf4ubJF3OuRpqYnGQBM-nQEQsxjlvFGw/view?usp=sharing>
-- Dataset limpio (formato usado por este código, `SPARCS_2022_clean_go.csv`): <https://drive.google.com/file/d/1cQwAvdyhqbVbZN5Wj8cJuv3X1kOPbJoh/view?usp=sharing>
+```bash
+go run . -mode=download                 # dataset limpio (default)
+go run . -mode=download -download=raw   # dataset original
+go run . -mode=download -download=all   # ambos
+```
 
-Colocar el archivo limpio en `dataset/SPARCS_2022_clean_go.csv` (o
-pasar otra ruta con `-dataset`). Alternativamente, se puede regenerar
-el limpio desde el original con `-mode=clean` (ver `cleaning.go`).
+Cualquier modo que necesite el dataset limpio (`quick`, `benchmark`,
+`resources`, `cpu-profile`, `all`) lo descarga automáticamente si
+falta; `-no-download` desactiva esa descarga automática y devuelve un
+error accionable en su lugar. Detalle completo (qué se verifica,
+alternativa manual con enlaces de Google Drive, verificación con
+`SHA256SUMS`, y qué hacer si el archivo de origen cambia) en
+[`dataset/README.md`](dataset/README.md).
+
+Alternativamente, el dataset limpio se puede regenerar desde el
+original con `-mode=clean` (ver `cleaning.go`), que también descarga
+el original automáticamente si hace falta.
 
 ## Cómo ejecutar
 
@@ -34,7 +47,7 @@ También es válido usar el binario legado `go run . cpu-profile`
 
 | Flag | Default | Descripción |
 |---|---|---|
-| `-mode` | `all` | `quick`\|`benchmark`\|`resources`\|`cpu-profile`\|`clean`\|`all` |
+| `-mode` | `all` | `quick`\|`benchmark`\|`resources`\|`cpu-profile`\|`clean`\|`all`\|`download` |
 | `-runs` | `10` | Ejecuciones por configuración en el benchmark formal |
 | `-warmup` | `1` | Ejecuciones de calentamiento descartadas antes de medir |
 | `-epochs` | `100` | Épocas de entrenamiento |
@@ -42,6 +55,8 @@ También es válido usar el binario legado `go run . cpu-profile`
 | `-trim` | `0.1` | Fracción recortada POR LADO en la media recortada (0.1 = 10% inferior + 10% superior) |
 | `-out` | `results` | Directorio de salida para la evidencia persistida |
 | `-dataset` | `dataset/SPARCS_2022_clean_go.csv` | Ruta al dataset limpio (CSV) |
+| `-download` | `clean` | Con `-mode=download`, qué dataset descargar: `clean`\|`raw`\|`all` |
+| `-no-download` | `false` | Desactiva la descarga automática del dataset faltante |
 
 ### Modos
 
@@ -58,6 +73,8 @@ También es válido usar el binario legado `go run . cpu-profile`
   (`cleaning.go`), sin correr el pipeline de regresión.
 - `all` (default) — corre `quick` + `benchmark` + `resources` en
   secuencia.
+- `download` — descarga y verifica el/los dataset(s) elegidos con
+  `-download=clean|raw|all` (ver [`dataset/README.md`](dataset/README.md)).
 
 Ejemplos:
 
