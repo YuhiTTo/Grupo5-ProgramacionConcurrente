@@ -11,13 +11,13 @@ import (
 )
 
 type PreprocessingSummary struct {
-	AgeGroups              []string
-	AdmissionTypes         []string
-	MajorDiagnosticGroups  []string
-	MedicalSurgicalGroups  []string
-	PaymentTypes           []string
-	EmergencyIndicators    []string
-	FinalFeatureCount      int
+	AgeGroups             []string
+	AdmissionTypes        []string
+	MajorDiagnosticGroups []string
+	MedicalSurgicalGroups []string
+	PaymentTypes          []string
+	EmergencyIndicators   []string
+	FinalFeatureCount     int
 }
 
 func analyzePreprocessingSchema(filePath string) (PreprocessingSummary, error) {

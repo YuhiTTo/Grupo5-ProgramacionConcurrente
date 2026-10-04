@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// defaultWorkerConfigurations es la lista de workers usada quando
+// defaultWorkerConfigurations es la lista de workers usada cuando
 // el usuario no especifica -workers.
 var defaultWorkerConfigurations = []int{1, 2, 4, 8, 12, 16, 24, 32}
 
