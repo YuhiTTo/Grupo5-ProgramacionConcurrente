@@ -17,7 +17,7 @@ Strict TDD enabled (session config). Runner: `go test ./...`.
 - [x] T3 — Fix high/medium GAPs with TDD; `go test -race` via Docker. Route: delegated writer.
 - [x] T4 — Conclusions draft (docs/tp/04). Route: delegated writer.
 - [x] T5 — TP Word report + per-student copies + participation template + PDF. Route: inline scripts.
-- [ ] T6 — docs/tp/README, video script, README link, PRs to develop → main.
+- [x] T6 — docs/tp/README, video script, README link, PRs to develop → main.
 
 ## Out of scope (team)
 Own commits from José/Lucero, recording the video, rewriting conclusions in their words,
@@ -43,3 +43,9 @@ individual uploads, participation report percentages.
   ([ENLACE DEL VIDEO] placeholder), references renumbered to 18 + Holzmann (2003).
   Word renamed heading style ids to Ttulo1/Ttulo2 after the COM save; script adapted.
   validate.py PASSED; Word TOC update shows 13-18; pages 48-50 rendered and inspected.
+- Reviews: T1 slice review-9137c56cedbcbe4f approved+acknowledged; T3 slice review-22d98ec86758cb43
+  approved+acknowledged (both run in a separate git worktree pinned to the slice head).
+  Advisory "idle timeout race" (3 lenses) refuted: io.Copy writes n bytes before handling err and
+  the timer already cancelled the request context, so reporting the timeout is correct. Other
+  advisories (fixed .part name, duplicate StopCPUProfile, dieOnError helper) left as follow-ups.
+- Stale lineage review-37cd6af1b1bcd522 left untouched (abandon requires maintainer authorization).
