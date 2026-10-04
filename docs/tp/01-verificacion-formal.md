@@ -32,6 +32,14 @@ y su mapeo detallado a Go están en
 
 En la revalidación final se observó un crecimiento acelerado del espacio de estados al incrementar el número de workers, manteniendo 4 jobs: 12,358 estados almacenados con 2 workers, 145,563 con 3 workers y 1,080,202 con 4 workers. Asimismo, una ejecución previa de la variante 4/8 superó los 34 millones de estados y 3.2 GB de memoria sin finalizar. Este comportamiento evidencia la explosión del espacio de estados característica de la verificación exhaustiva y justifica el uso de configuraciones reducidas, en las cuales Spin puede explorar exhaustivamente las posibles intercalaciones de la lógica de sincronización modelada.
 
+### Revalidación final realizada para el TP
+
+Como parte de la revisión final de la verificación formal, se volvieron a ejecutar las configuraciones 2 workers / 4 jobs, 3 workers / 4 jobs y 4 workers / 4 jobs mediante `promela/run_spin.sh`. En las tres configuraciones, la corrida de seguridad terminó con `errors: 0`, sin estados finales inválidos, y las propiedades LTL `mutex`, `safe_update` y `termination` también fueron verificadas sin errores.
+
+Adicionalmente, se ejecutó `promela/run_spin_mutants.sh` para comprobar que el procedimiento de verificación detectara defectos introducidos deliberadamente. Spin identificó correctamente una violación de exclusión mutua, una actualización prematura y un deadlock, todos con `errors: 1`.
+
+Esta revalidación permite comprobar tanto el comportamiento esperado del modelo correcto como la capacidad del procedimiento de verificación para detectar errores de sincronización.
+
 ## Los mutantes: la verificación detecta errores reales
 
 Un resultado de `0 errores` solo tiene valor si Spin **sí** reporta errores
