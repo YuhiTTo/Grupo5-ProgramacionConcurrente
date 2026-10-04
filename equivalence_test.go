@@ -196,6 +196,7 @@ func TestSequentialConcurrentEquivalenceWithActiveCategoricals(t *testing.T) {
 		assertEquivalentToSequential(t, samples, 15, workers)
 	}
 }
+
 // TestConcurrentTrainingJobPartitionEdgeCases covers the invariant that
 // the number of jobs actually produced never exceeds jobCount (the
 // channel capacity): datasets smaller than workers*4 (jobCount clamped
