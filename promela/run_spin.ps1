@@ -7,9 +7,9 @@
 
 .DESCRIPTION
     Requiere `spin` y `gcc` (p. ej. vía MSYS2/MinGW) instalados y
-    en el PATH. NO están instalados en el entorno donde se generó
-    este script; el equipo debe ejecutarlo localmente o vía Docker
-    (ver comentario al final) para producir la evidencia real.
+    en el PATH. Si no están disponibles, ejecutar run_spin.sh en
+    Docker con el comando documentado en el README y al final de
+    este archivo.
 
 .PARAMETER Workers
     Valor de NUM_WORKERS para esta corrida. Default: 3.
@@ -96,17 +96,10 @@ Write-Host "Listo. Resultados en $OutDir"
 
 <#
 Alternativa con Docker (si spin/gcc no están disponibles
-localmente vía MSYS2/MinGW, p. ej. en este entorno de
-desarrollo):
+localmente vía MSYS2/MinGW); es el comando verificado por el
+equipo (el script .sh dentro del contenedor reutiliza la misma
+lógica que este .ps1):
 
-    docker run --rm -v ${PWD}:/work -w /work `
-      -e WORKERS=3 -e JOBS=4 `
-      <imagen-con-spin-y-gcc> `
-      bash -c 'promela/run_spin.sh "$WORKERS" "$JOBS"'
-
-No existe todavía una imagen oficial del equipo; se puede
-construir una mínima con `apt-get install -y spin gcc` (Debian/
-Ubuntu) o usar una imagen pública con Spin preinstalado. El
-script .sh dentro del contenedor reutiliza la misma lógica que
-este .ps1.
+    docker run --rm -v ${PWD}:/work -w /work debian:stable-slim bash -ec `
+      'apt-get update -qq >/dev/null && apt-get install -y -qq spin gcc libc6-dev >/dev/null 2>&1 && bash promela/run_spin.sh 2 4'
 #>

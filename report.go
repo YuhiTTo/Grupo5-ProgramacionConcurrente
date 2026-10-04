@@ -36,13 +36,22 @@ func formatFloat(value float64) string {
 	return strconv.FormatFloat(value, 'f', 6, 64)
 }
 
+// closeFile cierra file y, si no había un error previo en *err, propaga
+// el error de Close: un fallo de escritura diferida (p. ej. disco lleno)
+// no debe pasar inadvertido. Se usa con defer y un error con nombre.
+func closeFile(file *os.File, err *error) {
+	if closeErr := file.Close(); *err == nil && closeErr != nil {
+		*err = closeErr
+	}
+}
+
 // writeBenchmarkRunsCSV persiste cada corrida individual (secuencial
 // y cada configuración concurrente) en <out>/benchmark/benchmark_runs.csv.
 func writeBenchmarkRunsCSV(
 	outDir string,
 	sequential BenchmarkResult,
 	concurrentResults []BenchmarkResult,
-) (string, error) {
+) (_ string, err error) {
 
 	dir := filepath.Join(outDir, "benchmark")
 
@@ -56,7 +65,7 @@ func writeBenchmarkRunsCSV(
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer closeFile(file, &err)
 
 	writer := csv.NewWriter(file)
 
@@ -132,7 +141,7 @@ func writeSpeedupSummaryCSV(
 	outDir string,
 	sequential BenchmarkResult,
 	concurrentResults []BenchmarkResult,
-) (string, error) {
+) (_ string, err error) {
 
 	dir := filepath.Join(outDir, "benchmark")
 
@@ -146,7 +155,7 @@ func writeSpeedupSummaryCSV(
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer closeFile(file, &err)
 
 	writer := csv.NewWriter(file)
 
@@ -255,7 +264,7 @@ func writeEnvironmentReport(outDir string, meta EnvironmentMeta) (string, error)
 
 // writeResourcesCSV persiste el perfil de recursos (heap, allocs,
 // GC, goroutines) por configuración en <out>/resources/resources.csv.
-func writeResourcesCSV(outDir string, results []ResourceProfileResult) (string, error) {
+func writeResourcesCSV(outDir string, results []ResourceProfileResult) (_ string, err error) {
 	dir := filepath.Join(outDir, "resources")
 
 	if err := ensureDir(dir); err != nil {
@@ -268,7 +277,7 @@ func writeResourcesCSV(outDir string, results []ResourceProfileResult) (string, 
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer closeFile(file, &err)
 
 	writer := csv.NewWriter(file)
 

@@ -11,13 +11,13 @@ import (
 )
 
 type PreprocessingSummary struct {
-	AgeGroups              []string
-	AdmissionTypes         []string
-	MajorDiagnosticGroups  []string
-	MedicalSurgicalGroups  []string
-	PaymentTypes           []string
-	EmergencyIndicators    []string
-	FinalFeatureCount      int
+	AgeGroups             []string
+	AdmissionTypes        []string
+	MajorDiagnosticGroups []string
+	MedicalSurgicalGroups []string
+	PaymentTypes          []string
+	EmergencyIndicators   []string
+	FinalFeatureCount     int
 }
 
 func analyzePreprocessingSchema(filePath string) (PreprocessingSummary, error) {
@@ -41,7 +41,10 @@ func analyzePreprocessingSchema(filePath string) (PreprocessingSummary, error) {
 		)
 	}
 
-	columnIndex := buildColumnIndex(header)
+	columnIndex, minRowLength, err := validateCleanHeader(header)
+	if err != nil {
+		return PreprocessingSummary{}, err
+	}
 
 	ageGroups := make(map[string]struct{})
 	admissionTypes := make(map[string]struct{})
@@ -62,6 +65,10 @@ func analyzePreprocessingSchema(filePath string) (PreprocessingSummary, error) {
 				"error leyendo el dataset: %w",
 				err,
 			)
+		}
+
+		if err := validateRowLength(row, minRowLength); err != nil {
+			return PreprocessingSummary{}, err
 		}
 
 		ageGroups[row[columnIndex["Age Group"]]] = struct{}{}
@@ -104,6 +111,46 @@ func analyzePreprocessingSchema(filePath string) (PreprocessingSummary, error) {
 			(len(summary.PaymentTypes) - 1)
 
 	return summary, nil
+}
+
+// validateCleanHeader verifica que la cabecera del dataset limpio
+// contenga todas las columnas esperadas y devuelve su índice junto con
+// la longitud mínima que debe tener cada fila para poder leerlas.
+func validateCleanHeader(header []string) (map[string]int, int, error) {
+	columnIndex := buildColumnIndex(header)
+
+	for _, columnName := range outputColumns {
+		if _, exists := columnIndex[columnName]; !exists {
+			return nil, 0, fmt.Errorf(
+				"el dataset no contiene la columna obligatoria %q",
+				columnName,
+			)
+		}
+	}
+
+	minRowLength := 0
+
+	for _, columnName := range outputColumns {
+		if position := columnIndex[columnName] + 1; position > minRowLength {
+			minRowLength = position
+		}
+	}
+
+	return columnIndex, minRowLength, nil
+}
+
+// validateRowLength evita un panic por índice fuera de rango cuando una
+// fila tiene menos columnas que las requeridas.
+func validateRowLength(row []string, minRowLength int) error {
+	if len(row) < minRowLength {
+		return fmt.Errorf(
+			"fila con %d columnas; se esperaban al menos %d",
+			len(row),
+			minRowLength,
+		)
+	}
+
+	return nil
 }
 
 func sortedKeys(values map[string]struct{}) []string {
@@ -316,7 +363,11 @@ func loadAndSplitDataset(
 		)
 	}
 
-	columnIndex := buildColumnIndex(header)
+	columnIndex, minRowLength, err := validateCleanHeader(header)
+
+	if err != nil {
+		return nil, nil, err
+	}
 
 	expectedTrainRows := int(
 		float64(expectedRows) * trainRatio,
@@ -353,6 +404,10 @@ func loadAndSplitDataset(
 				"error leyendo el dataset: %w",
 				err,
 			)
+		}
+
+		if err := validateRowLength(row, minRowLength); err != nil {
+			return nil, nil, err
 		}
 
 		sample, err := parseSample(

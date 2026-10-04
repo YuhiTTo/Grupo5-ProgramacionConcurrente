@@ -5,10 +5,10 @@
 # (deadlock / invalid end states / assertion violations)
 # y luego cada propiedad LTL por separado (-N <nombre>).
 #
-# Requiere `spin` y `gcc` instalados y en el PATH. NO están
-# instalados en el entorno donde se generó este script;
-# el equipo debe ejecutarlo localmente o vía Docker (ver
-# nota al final) para producir la evidencia real.
+# Requiere `spin` y `gcc` instalados y en el PATH. Si no están
+# disponibles localmente, ejecutarlo en Docker con el comando
+# documentado en el README (sección de verificación formal) y al
+# final de este archivo.
 #
 # Uso:
 #   ./run_spin.sh                              # NUM_WORKERS=3, NUM_JOBS=4 (defaults del modelo)
@@ -28,10 +28,27 @@ set -euo pipefail
 WORKERS="${1:-3}"
 JOBS="${2:-4}"
 
+for arg_name in WORKERS JOBS; do
+    if ! [[ "${!arg_name}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "Error: ${arg_name} debe ser un entero positivo (recibido: '${!arg_name}')" >&2
+        echo "Uso: $0 [NUM_WORKERS] [NUM_JOBS]" >&2
+        exit 2
+    fi
+done
+
+for tool in spin gcc; do
+    if ! command -v "$tool" > /dev/null 2>&1; then
+        echo "Error: '$tool' no está instalado o no está en el PATH." >&2
+        echo "Instálelo (apt-get install -y spin gcc libc6-dev) o use el comando Docker del README." >&2
+        exit 127
+    fi
+done
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODEL="$SCRIPT_DIR/regression_workers.pml"
 OUT_DIR="$SCRIPT_DIR/../results/promela"
 WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
 
 mkdir -p "$OUT_DIR"
 
@@ -75,20 +92,15 @@ for ltl_name in safe_update termination mutex; do
 done
 
 popd > /dev/null
-rm -rf "$WORK_DIR"
 
 echo "Listo. Resultados en $OUT_DIR"
 
 #
 # Alternativa con Docker (si spin/gcc no están disponibles
-# localmente, p. ej. en este entorno de desarrollo):
+# localmente); es el comando verificado por el equipo:
 #
-#   docker run --rm -v "$PWD":/work -w /work \
-#     -e WORKERS=3 -e JOBS=4 \
-#     <imagen-con-spin-y-gcc> \
-#     bash -c 'promela/run_spin.sh "$WORKERS" "$JOBS"'
-#
-# No existe todavía una imagen oficial del equipo; se puede
-# construir una mínima con `apt-get install -y spin gcc` (Debian/
-# Ubuntu) o usar una imagen pública con Spin preinstalado.
+#   docker run --rm -v "$PWD":/work -w /work debian:stable-slim bash -ec \
+#     'apt-get update -qq >/dev/null && \
+#      apt-get install -y -qq spin gcc libc6-dev >/dev/null 2>&1 && \
+#      bash promela/run_spin.sh 2 4'
 #
