@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -159,5 +160,67 @@ func TestLoadAndSplitDatasetRejectsUnknownCategory(t *testing.T) {
 
 	if _, _, err := loadAndSplitDataset(other, schema, 4, 1.0, 42); err == nil {
 		t.Fatal("se esperaba un error por categoría desconocida")
+	}
+}
+
+func writeRawText(t *testing.T, content string) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "custom.csv")
+
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("no se pudo escribir el fixture: %v", err)
+	}
+
+	return path
+}
+
+func TestAnalyzePreprocessingSchemaRejectsMissingColumn(t *testing.T) {
+	path := writeRawText(t, "Age Group,Length of Stay\n0 to 17,2\n")
+
+	_, err := analyzePreprocessingSchema(path)
+
+	if err == nil {
+		t.Fatal("se esperaba un error por columnas obligatorias ausentes")
+	}
+
+	if !strings.Contains(err.Error(), "columna") {
+		t.Errorf("el error debería mencionar la columna faltante: %v", err)
+	}
+}
+
+func TestAnalyzePreprocessingSchemaRejectsShortRow(t *testing.T) {
+	path := writeCleanFixture(t, "0 to 17,2,0\n")
+
+	_, err := analyzePreprocessingSchema(path)
+
+	if err == nil {
+		t.Fatal("se esperaba un error por fila con menos columnas que la cabecera")
+	}
+}
+
+func TestLoadAndSplitDatasetRejectsMissingColumnAndShortRow(t *testing.T) {
+	good := writeCleanFixture(t, "")
+
+	summary, err := analyzePreprocessingSchema(good)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema, err := buildFeatureSchema(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	missing := writeRawText(t, "Age Group,Length of Stay\n0 to 17,2\n")
+
+	if _, _, err := loadAndSplitDataset(missing, schema, 1, 1.0, 42); err == nil {
+		t.Error("se esperaba un error por columnas obligatorias ausentes")
+	}
+
+	short := writeCleanFixture(t, "0 to 17,2,0\n")
+
+	if _, _, err := loadAndSplitDataset(short, schema, 4, 1.0, 42); err == nil {
+		t.Error("se esperaba un error por fila corta")
 	}
 }
