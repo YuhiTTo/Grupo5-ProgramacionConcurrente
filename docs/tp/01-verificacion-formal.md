@@ -60,12 +60,12 @@ Spin verifica la lógica de sincronización abstracta. Para el código real se
 ejecutó el detector de carreras de Go:
 
 ```bash
-docker run --rm -v "$PWD":/src:ro -w /src golang:1.27 go test -race -count=1 ./...
+docker run --rm -v "$PWD":/src:ro -w /src golang:1.27 go test -race -count=1 -v ./...
 ```
 
 Resultado (Go 1.27.1 linux/amd64): `ok`, sin carreras detectadas. La salida
 completa está en [`results/race/go_test_race.txt`](../../results/race/go_test_race.txt)
-(80 pruebas en PASS). `equivalence_test.go` ejecuta `trainConcurrent` con 1, 2,
+(salida cruda de `go test -race -count=1 -v ./...` con el comando de arriba: 80 pruebas en PASS y 1 en SKIP, que se omite a propósito cuando el dataset real está presente). `equivalence_test.go` ejecuta `trainConcurrent` con 1, 2,
 4 y 8 workers, de modo que el detector cubrió el Worker Pool.
 
 ## Cómo reproducir
