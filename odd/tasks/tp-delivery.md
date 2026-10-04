@@ -16,7 +16,7 @@ Strict TDD enabled (session config). Runner: `go test ./...`.
 - [x] T2 — Structured prompt + AI GAP report (docs/tp/02, 03). Route: delegated analyst.
 - [x] T3 — Fix high/medium GAPs with TDD; `go test -race` via Docker. Route: delegated writer.
 - [x] T4 — Conclusions draft (docs/tp/04). Route: delegated writer.
-- [ ] T5 — TP Word report + per-student copies + participation template + PDF. Route: inline scripts.
+- [x] T5 — TP Word report + per-student copies + participation template + PDF. Route: inline scripts.
 - [ ] T6 — docs/tp/README, video script, README link, PRs to develop → main.
 
 ## Out of scope (team)
@@ -37,3 +37,9 @@ individual uploads, participation report percentages.
   T3 committed on the same branch (orchestration error: parallel writer during open review).
   Abandon needs maintainer authorization -> left untouched; fresh slice reviews run in a separate
   git worktree instead.
+- T5: Documentos/CC65-TP-202620-{U201714492,U202216120,U202218044}.docx + CC65-TP-202620-Grupo5.pdf
+  (52 pages). Built from the revised PC2 report: cover PC2->TP, TP paragraph in summary, new
+  13 Correcciones PC2, 14 Spin (+mutants), 15 IA analysis, 16 conclusions, 17 annex
+  ([ENLACE DEL VIDEO] placeholder), references renumbered to 18 + Holzmann (2003).
+  Word renamed heading style ids to Ttulo1/Ttulo2 after the COM save; script adapted.
+  validate.py PASSED; Word TOC update shows 13-18; pages 48-50 rendered and inspected.
