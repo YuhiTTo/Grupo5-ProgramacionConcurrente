@@ -21,13 +21,13 @@ func main() {
 			os.Exit(0)
 		}
 
-		fmt.Println("Error:", err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
 
 	if config.Mode == "download" {
 		if err := runDownloadMode(config); err != nil {
-			fmt.Println("Error:", err)
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
 
@@ -36,20 +36,27 @@ func main() {
 
 	if config.Mode == "clean" {
 		if err := ensureRawDatasetAvailable(config); err != nil {
-			fmt.Println("Error:", err)
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
 
-		runCleaning()
+		if err := runCleaning(inputCSVPath, outputCSVPath); err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+			os.Exit(1)
+		}
+
 		return
 	}
 
 	if err := ensureCleanDatasetAvailable(config); err != nil {
-		fmt.Println("Error:", err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
 
-	runPipeline(config)
+	if err := runPipeline(config); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
 }
 
 // runDownloadMode implementa `-mode=download`: descarga el/los
@@ -159,14 +166,13 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func runPipeline(config Config) {
+func runPipeline(config Config) error {
 	fmt.Println(" PC2 - REGRESIÓN LINEAL")
 
 	datasetInfo, err := inspectCleanDataset(config.DatasetPath)
 
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return err
 	}
 
 	fmt.Printf("\nRegistros encontrados: %d\n", datasetInfo.RowCount)
@@ -178,8 +184,7 @@ func runPipeline(config Config) {
 		analyzePreprocessingSchema(config.DatasetPath)
 
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return err
 	}
 
 	printCategorySummary(
@@ -224,8 +229,7 @@ func runPipeline(config Config) {
 		buildFeatureSchema(preprocessingSummary)
 
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return err
 	}
 
 	fmt.Printf(
@@ -246,8 +250,7 @@ func runPipeline(config Config) {
 		)
 
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return err
 	}
 
 	fmt.Println()
@@ -284,8 +287,7 @@ func runPipeline(config Config) {
 		calculateScalingParameters(trainData)
 
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return err
 	}
 
 	fmt.Println()
@@ -332,11 +334,10 @@ func runPipeline(config Config) {
 			learningRate,
 			config.OutDir,
 		); err != nil {
-			fmt.Println("Error:", err)
-			os.Exit(1)
+			return err
 		}
 
-		return
+		return nil
 	}
 
 	environmentPath, err := writeEnvironmentReport(
@@ -367,9 +368,7 @@ func runPipeline(config Config) {
 			config,
 			learningRate,
 		); err != nil {
-			fmt.Println()
-			fmt.Println("Error: verificación de equivalencia falló:", err)
-			os.Exit(1)
+			return fmt.Errorf("verificación de equivalencia falló: %w", err)
 		}
 	}
 
@@ -390,6 +389,8 @@ func runPipeline(config Config) {
 			learningRate,
 		)
 	}
+
+	return nil
 }
 
 func runQuickComparison(

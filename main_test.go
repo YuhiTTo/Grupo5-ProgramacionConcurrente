@@ -111,3 +111,13 @@ func TestDownloadTargets(t *testing.T) {
 		})
 	}
 }
+
+func TestRunPipeline_MissingDatasetReturnsError(t *testing.T) {
+	config := defaultConfig()
+	config.DatasetPath = filepath.Join(t.TempDir(), "no-existe.csv")
+	config.NoDownload = true
+
+	if err := runPipeline(config); err == nil {
+		t.Fatal("se esperaba un error cuando el dataset no existe")
+	}
+}

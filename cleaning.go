@@ -70,11 +70,10 @@ type CleanedRecord struct {
 	TotalCost                    float64
 }
 
-func runCleaning() {
-	inputFile, err := os.Open(inputCSVPath)
+func runCleaning(inputPath string, outputPath string) error {
+	inputFile, err := os.Open(inputPath)
 	if err != nil {
-		fmt.Println("Error al abrir el dataset:", err)
-		return
+		return fmt.Errorf("error al abrir el dataset: %w", err)
 	}
 	defer inputFile.Close()
 
@@ -83,21 +82,18 @@ func runCleaning() {
 
 	header, err := csvReader.Read()
 	if err != nil {
-		fmt.Println("Error al leer la cabecera:", err)
-		return
+		return fmt.Errorf("error al leer la cabecera: %w", err)
 	}
 
 	columnIndex := buildColumnIndex(header)
 
 	if missingColumn := findMissingRequiredColumn(columnIndex); missingColumn != "" {
-		fmt.Printf("No se encontró la columna obligatoria: %s\n", missingColumn)
-		return
+		return fmt.Errorf("no se encontró la columna obligatoria: %s", missingColumn)
 	}
 
-	outputFile, err := os.Create(outputCSVPath)
+	outputFile, err := os.Create(outputPath)
 	if err != nil {
-		fmt.Println("Error al crear el archivo de salida:", err)
-		return
+		return fmt.Errorf("error al crear el archivo de salida: %w", err)
 	}
 	defer outputFile.Close()
 
@@ -105,8 +101,7 @@ func runCleaning() {
 	defer csvWriter.Flush()
 
 	if err := csvWriter.Write(outputColumns); err != nil {
-		fmt.Println("Error al escribir la cabecera:", err)
-		return
+		return fmt.Errorf("error al escribir la cabecera: %w", err)
 	}
 
 	stats := CleaningStats{}
@@ -119,8 +114,7 @@ func runCleaning() {
 		}
 
 		if err != nil {
-			fmt.Println("Error al leer una fila:", err)
-			return
+			return fmt.Errorf("error al leer una fila: %w", err)
 		}
 
 		stats.RowsRead++
@@ -141,8 +135,7 @@ func runCleaning() {
 		}
 
 		if err := csvWriter.Write(cleanedRecord.toCSVRow()); err != nil {
-			fmt.Println("Error al escribir una fila:", err)
-			return
+			return fmt.Errorf("error al escribir una fila: %w", err)
 		}
 
 		stats.RowsKept++
@@ -151,11 +144,12 @@ func runCleaning() {
 	csvWriter.Flush()
 
 	if err := csvWriter.Error(); err != nil {
-		fmt.Println("Error durante la escritura:", err)
-		return
+		return fmt.Errorf("error durante la escritura: %w", err)
 	}
 
-	printCleaningSummary(stats)
+	printCleaningSummary(stats, outputPath)
+
+	return nil
 }
 
 func cleanRecord(
@@ -340,7 +334,7 @@ func boolToInt(value bool) int {
 	return 0
 }
 
-func printCleaningSummary(stats CleaningStats) {
+func printCleaningSummary(stats CleaningStats, outputPath string) {
 	fmt.Println()
 	fmt.Println(" SPARCS 2022 - RESULTADO DE LIMPIEZA PC1")
 
@@ -354,5 +348,5 @@ func printCleaningSummary(stats CleaningStats) {
 
 	fmt.Println()
 	fmt.Println("Dataset limpio generado en:")
-	fmt.Println(outputCSVPath)
+	fmt.Println(outputPath)
 }
