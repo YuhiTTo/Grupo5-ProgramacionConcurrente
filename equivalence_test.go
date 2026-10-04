@@ -196,3 +196,28 @@ func TestSequentialConcurrentEquivalenceWithActiveCategoricals(t *testing.T) {
 		assertEquivalentToSequential(t, samples, 15, workers)
 	}
 }
+// TestConcurrentTrainingJobPartitionEdgeCases covers the invariant that
+// the number of jobs actually produced never exceeds jobCount (the
+// channel capacity): datasets smaller than workers*4 (jobCount clamped
+// to len(trainData)), sizes not divisible by jobCount (fewer jobs than
+// jobCount), and more workers than samples.
+func TestConcurrentTrainingJobPartitionEdgeCases(t *testing.T) {
+	tests := []struct {
+		samples int
+		workers int
+	}{
+		{samples: 13, workers: 2}, // jobCount 8, chunk 2, 7 jobs produced
+		{samples: 17, workers: 4}, // jobCount 16, chunk 2, 9 jobs produced
+		{samples: 10, workers: 8}, // len < workers*4: jobCount clamped to 10
+		{samples: 3, workers: 8},  // more workers than samples
+		{samples: 1, workers: 4},  // single sample
+		{samples: 31, workers: 8}, // len < workers*4 (32), jobCount 31
+		{samples: 50, workers: 3}, // jobCount 12, chunk 5, 10 jobs produced
+	}
+
+	for _, tt := range tests {
+		samples := buildCategoricalSamples(tt.samples, int64(tt.samples))
+
+		assertEquivalentToSequential(t, samples, 15, tt.workers)
+	}
+}
