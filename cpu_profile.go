@@ -44,11 +44,15 @@ func runCPUProfile(
 	if err != nil {
 		return fmt.Errorf("no se pudo crear el archivo de perfil: %w", err)
 	}
+	// Safety net for early returns; the success path closes explicitly
+	// below and checks the error (a second Close here is harmless).
 	defer profileFile.Close()
 
 	if err := pprof.StartCPUProfile(profileFile); err != nil {
 		return fmt.Errorf("no se pudo iniciar el perfil de CPU: %w", err)
 	}
+
+	defer pprof.StopCPUProfile()
 
 	model := newLinearRegression(featureCount)
 
@@ -66,6 +70,10 @@ func runCPUProfile(
 	duration := time.Since(start)
 
 	pprof.StopCPUProfile()
+
+	if err := profileFile.Close(); err != nil {
+		return fmt.Errorf("no se pudo cerrar el archivo de perfil: %w", err)
+	}
 
 	fmt.Println()
 	fmt.Println("Perfil de CPU finalizado.")

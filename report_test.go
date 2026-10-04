@@ -346,3 +346,42 @@ func readFile(t *testing.T, path string) string {
 
 	return string(content)
 }
+
+func TestCloseFileReportsCloseError(t *testing.T) {
+	file, err := os.Create(filepath.Join(t.TempDir(), "x.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Closing an already closed file fails; closeFile must surface it.
+	var result error
+	closeFile(file, &result)
+
+	if result == nil {
+		t.Fatal("se esperaba que closeFile propagara el error de Close")
+	}
+
+	// It must not overwrite an error that is already set.
+	original := os.ErrInvalid
+	result = original
+	closeFile(file, &result)
+
+	if result != original {
+		t.Errorf("closeFile sobrescribió el error previo: %v", result)
+	}
+}
+
+func TestWriteResourcesCSVWritesFile(t *testing.T) {
+	path, err := writeResourcesCSV(t.TempDir(), []ResourceProfileResult{{Workers: 2}})
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		t.Errorf("el archivo no existe: %v", err)
+	}
+}
