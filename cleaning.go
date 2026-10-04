@@ -91,20 +91,52 @@ func runCleaning(inputPath string, outputPath string) error {
 		return fmt.Errorf("no se encontró la columna obligatoria: %s", missingColumn)
 	}
 
-	outputFile, err := os.Create(outputPath)
+	// The cleaned dataset is written to <path>.part and renamed only on
+	// success, so a failure never leaves a truncated file at the final
+	// path (which ensureNamedDatasetAvailable would treat as valid).
+	partPath := outputPath + ".part"
+
+	stats, err := writeCleanedCSV(csvReader, columnIndex, partPath)
 	if err != nil {
-		return fmt.Errorf("error al crear el archivo de salida: %w", err)
+		os.Remove(partPath)
+		return err
 	}
-	defer outputFile.Close()
+
+	if err := os.Rename(partPath, outputPath); err != nil {
+		os.Remove(partPath)
+		return fmt.Errorf("error al mover el archivo limpio a su destino final: %w", err)
+	}
+
+	printCleaningSummary(stats, outputPath)
+
+	return nil
+}
+
+// writeCleanedCSV cleans every remaining row of csvReader and writes the
+// result to path, syncing and closing the file and checking the close
+// error (a deferred write failure would otherwise go unnoticed).
+func writeCleanedCSV(
+	csvReader *csv.Reader,
+	columnIndex map[string]int,
+	path string,
+) (stats CleaningStats, err error) {
+
+	outputFile, err := os.Create(path)
+	if err != nil {
+		return stats, fmt.Errorf("error al crear el archivo de salida: %w", err)
+	}
+
+	defer func() {
+		if closeErr := outputFile.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("error al cerrar el archivo de salida: %w", closeErr)
+		}
+	}()
 
 	csvWriter := csv.NewWriter(outputFile)
-	defer csvWriter.Flush()
 
 	if err := csvWriter.Write(outputColumns); err != nil {
-		return fmt.Errorf("error al escribir la cabecera: %w", err)
+		return stats, fmt.Errorf("error al escribir la cabecera: %w", err)
 	}
-
-	stats := CleaningStats{}
 
 	for {
 		rawRow, err := csvReader.Read()
@@ -114,7 +146,7 @@ func runCleaning(inputPath string, outputPath string) error {
 		}
 
 		if err != nil {
-			return fmt.Errorf("error al leer una fila: %w", err)
+			return stats, fmt.Errorf("error al leer una fila: %w", err)
 		}
 
 		stats.RowsRead++
@@ -135,7 +167,7 @@ func runCleaning(inputPath string, outputPath string) error {
 		}
 
 		if err := csvWriter.Write(cleanedRecord.toCSVRow()); err != nil {
-			return fmt.Errorf("error al escribir una fila: %w", err)
+			return stats, fmt.Errorf("error al escribir una fila: %w", err)
 		}
 
 		stats.RowsKept++
@@ -144,12 +176,14 @@ func runCleaning(inputPath string, outputPath string) error {
 	csvWriter.Flush()
 
 	if err := csvWriter.Error(); err != nil {
-		return fmt.Errorf("error durante la escritura: %w", err)
+		return stats, fmt.Errorf("error durante la escritura: %w", err)
 	}
 
-	printCleaningSummary(stats, outputPath)
+	if err := outputFile.Sync(); err != nil {
+		return stats, fmt.Errorf("error al sincronizar el archivo de salida: %w", err)
+	}
 
-	return nil
+	return stats, nil
 }
 
 func cleanRecord(
