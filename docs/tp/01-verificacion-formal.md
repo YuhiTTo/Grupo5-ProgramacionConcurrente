@@ -43,7 +43,7 @@ marcado con `MUTANT:` en el código.
 |---|---|---|---|---|
 | `regression_workers_race.pml` | Cada Worker, después de enviar su resultado, también entra a la sección de actualización de pesos | `gradientWorker` escribiendo `model.Weights` sin sincronización | LTL `mutex` | **Violada** (`errors: 1`): dos procesos dentro de la sección crítica a la vez (`in_update` llega a 2), contraejemplo a profundidad 213 |
 | `regression_workers_race.pml` | (el mismo) | Actualizar pesos sin esperar `wg.Wait()` | LTL `safe_update` | **Violada** (`errors: 1`): un Worker marca `updating` antes de que el Coordinator reciba los `NUM_JOBS` resultados, contraejemplo a profundidad 33 |
-| `regression_workers_deadlock.pml` | El Coordinator envía un `STOP` menos que la cantidad de Workers | Olvidar `close(jobs)`: un Worker queda bloqueado en `for job := range jobs` | Seguridad | **Deadlock detectado** (`errors: 1`, *invalid end state* a profundidad 106) |
+| `regression_workers_deadlock.pml` | El Coordinator envía un `STOP` menos que la cantidad de Workers | Un Worker que nunca recibe la señal de fin, análogo a no cerrar `jobs` (en Go se bloquearían todos los workers en `for job := range jobs`; el mutante modela el caso mínimo de uno) | Seguridad | **Deadlock detectado** (`errors: 1`, *invalid end state* a profundidad 106) |
 
 Cada corrida guarda la reproducción del contraejemplo (`spin -t -p`) en
 `results/promela/mutants/<mutante>_<chequeo>_trail.txt`, que muestra paso a
@@ -63,9 +63,10 @@ ejecutó el detector de carreras de Go:
 docker run --rm -v "$PWD":/src:ro -w /src golang:1.27 go test -race -count=1 ./...
 ```
 
-Resultado (2026-10-03, Go 1.27.1 linux/amd64): `ok`, sin carreras detectadas.
-`equivalence_test.go` ejecuta `trainConcurrent` con 1, 2, 4 y 8 workers, de
-modo que el detector cubrió el Worker Pool.
+Resultado (Go 1.27.1 linux/amd64): `ok`, sin carreras detectadas. La salida
+completa está en [`results/race/go_test_race.txt`](../../results/race/go_test_race.txt)
+(80 pruebas en PASS). `equivalence_test.go` ejecuta `trainConcurrent` con 1, 2,
+4 y 8 workers, de modo que el detector cubrió el Worker Pool.
 
 ## Cómo reproducir
 

@@ -1,0 +1,181 @@
+# go test -race -count=1 -v ./...  (2026-10-04T05:56Z)
+go version go1.27.1 linux/amd64
+CGO_ENABLED=1
+commit: 1142d86 (feature/tp-delivery)
+=== RUN   TestRunCleaning_MissingInputReturnsError
+--- PASS: TestRunCleaning_MissingInputReturnsError (0.00s)
+=== RUN   TestRunCleaning_SuccessWritesFinalFileAtomically
+--- PASS: TestRunCleaning_SuccessWritesFinalFileAtomically (0.01s)
+=== RUN   TestRunCleaning_FailureLeavesNoFinalFile
+--- PASS: TestRunCleaning_FailureLeavesNoFinalFile (0.00s)
+=== RUN   TestRunCleaning_FailurePreservesExistingFinalFile
+--- PASS: TestRunCleaning_FailurePreservesExistingFinalFile (0.00s)
+=== RUN   TestParseConfigDefaults
+--- PASS: TestParseConfigDefaults (0.00s)
+=== RUN   TestParseConfigCustomFlags
+--- PASS: TestParseConfigCustomFlags (0.00s)
+=== RUN   TestParseConfigInvalidMode
+--- PASS: TestParseConfigInvalidMode (0.00s)
+=== RUN   TestParseConfigInvalidWorkers
+--- PASS: TestParseConfigInvalidWorkers (0.00s)
+=== RUN   TestParseConfigEmptyWorkers
+--- PASS: TestParseConfigEmptyWorkers (0.00s)
+=== RUN   TestParseConfigWorkerWithZero
+--- PASS: TestParseConfigWorkerWithZero (0.00s)
+=== RUN   TestParseConfigTrimOutOfRange
+--- PASS: TestParseConfigTrimOutOfRange (0.00s)
+=== RUN   TestParseConfigInvalidRunsAndEpochs
+--- PASS: TestParseConfigInvalidRunsAndEpochs (0.00s)
+=== RUN   TestParseConfigLegacyCPUProfilePositional
+--- PASS: TestParseConfigLegacyCPUProfilePositional (0.00s)
+=== RUN   TestParseConfigLegacyCPUProfileWithTrailingFlags
+--- PASS: TestParseConfigLegacyCPUProfileWithTrailingFlags (0.00s)
+=== RUN   TestParseConfigModeFlagOverridesLegacy
+--- PASS: TestParseConfigModeFlagOverridesLegacy (0.00s)
+=== RUN   TestParseConfigDownloadDefaults
+--- PASS: TestParseConfigDownloadDefaults (0.00s)
+=== RUN   TestParseConfigModeDownload
+--- PASS: TestParseConfigModeDownload (0.00s)
+=== RUN   TestParseConfigDownloadAllAndNoDownload
+--- PASS: TestParseConfigDownloadAllAndNoDownload (0.00s)
+=== RUN   TestParseConfigInvalidDownloadTarget
+--- PASS: TestParseConfigInvalidDownloadTarget (0.00s)
+=== RUN   TestEnsureDataset_HappyPathDownloads
+--- PASS: TestEnsureDataset_HappyPathDownloads (0.03s)
+=== RUN   TestEnsureDataset_HashMismatch
+--- PASS: TestEnsureDataset_HashMismatch (0.02s)
+=== RUN   TestEnsureDataset_TruncatedBody
+--- PASS: TestEnsureDataset_TruncatedBody (0.02s)
+=== RUN   TestEnsureDataset_ContentLengthMismatch
+--- PASS: TestEnsureDataset_ContentLengthMismatch (0.02s)
+=== RUN   TestEnsureDataset_RejectsHTMLContentType
+--- PASS: TestEnsureDataset_RejectsHTMLContentType (0.02s)
+=== RUN   TestEnsureDataset_RejectsNon200
+--- PASS: TestEnsureDataset_RejectsNon200 (0.02s)
+=== RUN   TestEnsureDataset_RejectsHTTPScheme
+--- PASS: TestEnsureDataset_RejectsHTTPScheme (0.00s)
+=== RUN   TestEnsureDataset_RejectsRedirectToDisallowedHost
+--- PASS: TestEnsureDataset_RejectsRedirectToDisallowedHost (0.02s)
+=== RUN   TestEnsureDataset_SkipsExistingValidFile
+--- PASS: TestEnsureDataset_SkipsExistingValidFile (0.01s)
+=== RUN   TestEnsureDataset_ReplacesExistingCorruptFile
+--- PASS: TestEnsureDataset_ReplacesExistingCorruptFile (0.03s)
+=== RUN   TestEnsureDataset_HonorsContextCancellation
+--- PASS: TestEnsureDataset_HonorsContextCancellation (0.00s)
+=== RUN   TestVerifyFile
+=== RUN   TestVerifyFile/valido
+=== RUN   TestVerifyFile/tamaño_incorrecto
+=== RUN   TestVerifyFile/hash_incorrecto
+=== RUN   TestVerifyFile/archivo_inexistente
+--- PASS: TestVerifyFile (0.01s)
+=== RUN   TestHostAllowed
+=== RUN   TestHostAllowed/drive.usercontent.google.com
+=== RUN   TestHostAllowed/drive.google.com
+=== RUN   TestHostAllowed/lh3.googleusercontent.com
+=== RUN   TestHostAllowed/googleusercontent.com
+=== RUN   TestHostAllowed/evil.example.com
+=== RUN   TestHostAllowed/drive.usercontent.google.com.evil.com
+--- PASS: TestHostAllowed (0.00s)
+=== RUN   TestDatasetSpecsRegistry
+--- PASS: TestDatasetSpecsRegistry (0.00s)
+=== RUN   TestEnsureDataset_IdleTimeoutWhileStreaming
+--- PASS: TestEnsureDataset_IdleTimeoutWhileStreaming (0.22s)
+=== RUN   TestVerifyEquivalenceWithinTolerance
+--- PASS: TestVerifyEquivalenceWithinTolerance (0.00s)
+=== RUN   TestVerifyEquivalenceExceedsTolerance
+--- PASS: TestVerifyEquivalenceExceedsTolerance (0.00s)
+=== RUN   TestSequentialConcurrentEquivalenceAcrossWorkerCounts
+--- PASS: TestSequentialConcurrentEquivalenceAcrossWorkerCounts (0.02s)
+=== RUN   TestConcurrentTrainingIsDeterministic
+--- PASS: TestConcurrentTrainingIsDeterministic (0.01s)
+=== RUN   TestSequentialConcurrentEquivalenceWithActiveCategoricals
+--- PASS: TestSequentialConcurrentEquivalenceWithActiveCategoricals (0.03s)
+=== RUN   TestConcurrentTrainingJobPartitionEdgeCases
+--- PASS: TestConcurrentTrainingJobPartitionEdgeCases (0.03s)
+=== RUN   TestEnsureNamedDatasetAvailable_FileExists
+--- PASS: TestEnsureNamedDatasetAvailable_FileExists (0.00s)
+=== RUN   TestEnsureNamedDatasetAvailable_MissingWithNoDownload
+--- PASS: TestEnsureNamedDatasetAvailable_MissingWithNoDownload (0.00s)
+=== RUN   TestEnsureCleanDatasetAvailable_FileExists
+--- PASS: TestEnsureCleanDatasetAvailable_FileExists (0.00s)
+=== RUN   TestEnsureCleanDatasetAvailable_CustomPathMissing
+--- PASS: TestEnsureCleanDatasetAvailable_CustomPathMissing (0.00s)
+=== RUN   TestEnsureCleanDatasetAvailable_DefaultPathMissingWithNoDownload
+=== RUN   TestDownloadTargets
+=== RUN   TestDownloadTargets/clean
+=== RUN   TestDownloadTargets/raw
+=== RUN   TestDownloadTargets/all
+=== RUN   TestDownloadTargets/#00
+--- PASS: TestDownloadTargets (0.00s)
+=== RUN   TestRunPipeline_MissingDatasetReturnsError
+--- PASS: TestRunPipeline_MissingDatasetReturnsError (0.00s)
+=== RUN   TestAnalyzePreprocessingSchemaAndFeatureSchema
+--- PASS: TestAnalyzePreprocessingSchemaAndFeatureSchema (0.00s)
+=== RUN   TestBuildFeatureSchemaRequiresReferenceCategory
+--- PASS: TestBuildFeatureSchemaRequiresReferenceCategory (0.00s)
+=== RUN   TestLoadAndSplitDatasetEncodesCategoricalDummies
+--- PASS: TestLoadAndSplitDatasetEncodesCategoricalDummies (0.00s)
+=== RUN   TestLoadAndSplitDatasetRejectsUnknownCategory
+--- PASS: TestLoadAndSplitDatasetRejectsUnknownCategory (0.01s)
+=== RUN   TestAnalyzePreprocessingSchemaRejectsMissingColumn
+--- PASS: TestAnalyzePreprocessingSchemaRejectsMissingColumn (0.00s)
+=== RUN   TestAnalyzePreprocessingSchemaRejectsShortRow
+--- PASS: TestAnalyzePreprocessingSchemaRejectsShortRow (0.00s)
+=== RUN   TestLoadAndSplitDatasetRejectsMissingColumnAndShortRow
+--- PASS: TestLoadAndSplitDatasetRejectsMissingColumnAndShortRow (0.01s)
+=== RUN   TestPredictWithKnownWeights
+--- PASS: TestPredictWithKnownWeights (0.00s)
+=== RUN   TestAccumulateSampleGradientCategoricalBranches
+--- PASS: TestAccumulateSampleGradientCategoricalBranches (0.00s)
+=== RUN   TestEvaluateModelPerfectPrediction
+--- PASS: TestEvaluateModelPerfectPrediction (0.00s)
+=== RUN   TestWriteBenchmarkRunsCSV
+--- PASS: TestWriteBenchmarkRunsCSV (0.00s)
+=== RUN   TestWriteSpeedupSummaryCSV
+--- PASS: TestWriteSpeedupSummaryCSV (0.00s)
+=== RUN   TestWriteSpeedupSummaryMarkdown
+--- PASS: TestWriteSpeedupSummaryMarkdown (0.00s)
+=== RUN   TestWriteEnvironmentReport
+--- PASS: TestWriteEnvironmentReport (0.00s)
+=== RUN   TestWriteResourcesCSV
+--- PASS: TestWriteResourcesCSV (0.00s)
+=== RUN   TestFindEquilibrium
+--- PASS: TestFindEquilibrium (0.00s)
+=== RUN   TestFindEquilibriumEmpty
+--- PASS: TestFindEquilibriumEmpty (0.00s)
+=== RUN   TestFindEquilibriumAllZeroSpeedups
+--- PASS: TestFindEquilibriumAllZeroSpeedups (0.00s)
+=== RUN   TestFindEfficiencyDrop
+--- PASS: TestFindEfficiencyDrop (0.00s)
+=== RUN   TestFindEfficiencyDropNoneBelow
+--- PASS: TestFindEfficiencyDropNoneBelow (0.00s)
+=== RUN   TestWriteEquilibriumMarkdown
+--- PASS: TestWriteEquilibriumMarkdown (0.00s)
+=== RUN   TestCloseFileReportsCloseError
+--- PASS: TestCloseFileReportsCloseError (0.00s)
+=== RUN   TestWriteResourcesCSVWritesFile
+--- PASS: TestWriteResourcesCSVWritesFile (0.00s)
+=== RUN   TestMeasureResourceUsageTracksElapsedAndGoroutines
+--- PASS: TestMeasureResourceUsageTracksElapsedAndGoroutines (0.02s)
+=== RUN   TestCalculateScalingParametersUsesTrainOnly
+--- PASS: TestCalculateScalingParametersUsesTrainOnly (0.00s)
+=== RUN   TestCalculateScalingParametersErrors
+--- PASS: TestCalculateScalingParametersErrors (0.00s)
+=== RUN   TestTrimmedMeanBasic
+--- PASS: TestTrimmedMeanBasic (0.00s)
+=== RUN   TestTrimmedMeanFallsBackToMeanWhenNothingLeft
+--- PASS: TestTrimmedMeanFallsBackToMeanWhenNothingLeft (0.00s)
+=== RUN   TestTrimmedMeanNoTrim
+--- PASS: TestTrimmedMeanNoTrim (0.00s)
+=== RUN   TestTrimmedMeanEmpty
+--- PASS: TestTrimmedMeanEmpty (0.00s)
+=== RUN   TestComputeStatsKnownInput
+--- PASS: TestComputeStatsKnownInput (0.00s)
+=== RUN   TestComputeStatsSingleValue
+--- PASS: TestComputeStatsSingleValue (0.00s)
+=== RUN   TestComputeStatsEmpty
+--- PASS: TestComputeStatsEmpty (0.00s)
+=== RUN   TestBenchmarkWarmupRunsAreExcluded
+--- PASS: TestBenchmarkWarmupRunsAreExcluded (0.01s)
+PASS
+ok  	github.com/YuhiTTo/Grupo5-ProgramacionConcurrente	1.701s

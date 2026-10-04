@@ -11,11 +11,11 @@ User decision: report AND fix important GAPs.
 Strict TDD enabled (session config). Runner: `go test ./...`.
 
 ## Tasks
-- [ ] T0 — Commit PC2 report fixes (cover code, TOC with 5.2/10.4, regenerated PDF). Route: inline.
-- [ ] T1 — Spin mutants (race + deadlock) proving the checks detect real errors; docs/tp/01. Route: delegated writer.
-- [ ] T2 — Structured prompt + AI GAP report (docs/tp/02, 03). Route: delegated analyst.
-- [ ] T3 — Fix high/medium GAPs with TDD; `go test -race` via Docker. Route: delegated writer.
-- [ ] T4 — Conclusions draft (docs/tp/04). Route: delegated writer.
+- [x] T0 — Commit PC2 report fixes (cover code, TOC with 5.2/10.4, regenerated PDF). Route: inline.
+- [x] T1 — Spin mutants (race + deadlock) proving the checks detect real errors; docs/tp/01. Route: delegated writer.
+- [x] T2 — Structured prompt + AI GAP report (docs/tp/02, 03). Route: delegated analyst.
+- [x] T3 — Fix high/medium GAPs with TDD; `go test -race` via Docker. Route: delegated writer.
+- [x] T4 — Conclusions draft (docs/tp/04). Route: delegated writer.
 - [ ] T5 — TP Word report + per-student copies + participation template + PDF. Route: inline scripts.
 - [ ] T6 — docs/tp/README, video script, README link, PRs to develop → main.
 
@@ -24,3 +24,16 @@ Own commits from José/Lucero, recording the video, rewriting conclusions in the
 individual uploads, participation report percentages.
 
 ## Progress / evidence
+- T0 cd142a2: cover code fixed; TOC rebuilt via Word COM (field used English style names).
+- T1 44870b9: race + deadlock mutants, all caught (errors: 1); run_spin_mutants.sh exit 0 in Docker;
+  claims checked against trails (in_update=2; Worker sets updating with result_count=0).
+- Participation template b537bab (validate.py PASSED, rendered).
+- T2: docs/tp/02 + 03 (19 GAPs: 0 Alta, 4 Media, 15 Baja), analysed commit cd142a2.
+- T3 e171945..1142d86 (writer, strict TDD): GAP-01,02,03,04,05,11,12,18,19 fixed; RED evidence per
+  behavior change (GAP-12 Close-error path only helper-tested). go vet/test ok, quick OK,
+  Docker go test -race ok, missing dataset exits 1 (parent re-ran test + exit code).
+- Baseline go test -race (Docker golang:1.27, Go 1.27.1) before fixes: ok.
+- Review review-37cd6af1b1bcd522 (T1 slice) reached correction_required, then scope moved because
+  T3 committed on the same branch (orchestration error: parallel writer during open review).
+  Abandon needs maintainer authorization -> left untouched; fresh slice reviews run in a separate
+  git worktree instead.

@@ -221,8 +221,10 @@ reporta errores.
 
 ## Documentación
 
+- [`docs/tp/README.md`](docs/tp/README.md): **TP** — verificación formal con
+  mutantes, análisis de GAPs con IA, conclusiones y guion del video.
 - [`docs/pc2/README.md`](docs/pc2/README.md): índice y mapeo de cada punto de
-  la rúbrica a su evidencia.
+  la rúbrica de la PC2 a su evidencia.
 - [`docs/pc2/01-algoritmo-concurrente.md`](docs/pc2/01-algoritmo-concurrente.md):
   algoritmo y sincronización.
 - [`docs/pc2/02-modelo-promela.md`](docs/pc2/02-modelo-promela.md): modelo
