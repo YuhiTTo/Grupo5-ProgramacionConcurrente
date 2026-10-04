@@ -5,13 +5,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 )
 
 // newTestDatasetServer arranca un servidor TLS local y devuelve el
@@ -406,5 +409,43 @@ func TestDatasetSpecsRegistry(t *testing.T) {
 
 	if raw.Size != 947122735 {
 		t.Errorf("raw.Size = %d, se esperaba 947122735", raw.Size)
+	}
+}
+
+func TestEnsureDataset_IdleTimeoutWhileStreaming(t *testing.T) {
+	previous := datasetIdleTimeout
+	datasetIdleTimeout = 200 * time.Millisecond
+	t.Cleanup(func() { datasetIdleTimeout = previous })
+
+	server, client, allowlist := newTestDatasetServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Write(bytes.Repeat([]byte("D"), 1024))
+		w.(http.Flusher).Flush()
+		// Stall: no more bytes until the client gives up.
+		<-r.Context().Done()
+	})
+
+	spec := testPayloadSpec(t, "stalled", bytes.Repeat([]byte("D"), 8192), server.URL)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	_, err := ensureDataset(ctx, client, spec, allowlist, io.Discard)
+
+	if err == nil {
+		t.Fatal("se esperaba un error por inactividad durante la descarga")
+	}
+
+	if !strings.Contains(err.Error(), "inactividad") {
+		t.Errorf("el error debería mencionar la inactividad, se obtuvo: %v", err)
+	}
+
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("la descarga tardó %v en fallar; el timeout de inactividad no se aplicó", elapsed)
+	}
+
+	if _, statErr := os.Stat(spec.Path); !os.IsNotExist(statErr) {
+		t.Errorf("no debería existir el archivo final, stat err = %v", statErr)
 	}
 }

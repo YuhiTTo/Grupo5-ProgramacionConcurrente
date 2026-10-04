@@ -101,6 +101,14 @@ func trainConcurrent(
 
 	for epoch := 1; epoch <= epochs; epoch++ {
 
+		// Invariante: actualJobCount <= jobCount. Con
+		// chunkSize = ceil(len/jobCount) se generan a lo sumo jobCount
+		// jobs (menos si len no es divisible), y jobCount <= len. Como
+		// ambos canales tienen capacidad jobCount, el productor nunca
+		// se bloquea al enviar jobs ni los workers al enviar resultados
+		// antes de que se drenen. Si se cambia el cálculo de chunkSize,
+		// hay que preservar esta invariante (o drenar results en una
+		// goroutine aparte) para no introducir un deadlock.
 		jobs :=
 			make(chan GradientJob, jobCount)
 

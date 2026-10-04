@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -39,6 +40,11 @@ const (
 	// de abortar la descarga.
 	maxDatasetRedirects = 10
 )
+
+// datasetIdleTimeout es el tiempo máximo sin recibir bytes mientras se
+// transmite el cuerpo de la descarga. Es una variable (no constante)
+// para que las pruebas puedan reducirlo.
+var datasetIdleTimeout = 60 * time.Second
 
 // defaultDatasetAllowlist son los únicos hosts desde los que se acepta
 // descargar un dataset (Google Drive y su CDN de contenido).
@@ -179,6 +185,11 @@ func downloadDataset(
 		return fmt.Errorf("%s: %w", spec.Name, err)
 	}
 
+	// El contexto derivado permite cancelar la lectura del cuerpo cuando
+	// el servidor deja de enviar datos (ver idleTimeoutReader).
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, spec.URL, nil)
 	if err != nil {
 		return fmt.Errorf("%s: no se pudo construir la petición: %w", spec.Name, err)
@@ -218,7 +229,55 @@ func downloadDataset(
 		)
 	}
 
-	return streamToFile(resp.Body, spec, out)
+	idleBody := newIdleTimeoutReader(resp.Body, datasetIdleTimeout, cancel)
+
+	return streamToFile(idleBody, spec, out)
+}
+
+// idleTimeoutReader envuelve un io.Reader y cancela la operación (vía
+// cancel) si pasan más de timeout sin recibir ningún byte. Cada lectura
+// que devuelve datos reinicia el temporizador.
+type idleTimeoutReader struct {
+	reader   io.Reader
+	timer    *time.Timer
+	timeout  time.Duration
+	timedOut atomic.Bool
+}
+
+func newIdleTimeoutReader(reader io.Reader, timeout time.Duration, cancel context.CancelFunc) *idleTimeoutReader {
+	r := &idleTimeoutReader{reader: reader, timeout: timeout}
+
+	r.timer = time.AfterFunc(timeout, func() {
+		r.timedOut.Store(true)
+		cancel()
+	})
+
+	return r
+}
+
+func (r *idleTimeoutReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+
+	if err == io.EOF {
+		r.timer.Stop()
+		return n, err
+	}
+
+	if r.timedOut.Load() {
+		r.timer.Stop()
+		return n, fmt.Errorf("sin recibir datos durante %v (timeout de inactividad)", r.timeout)
+	}
+
+	if err != nil {
+		r.timer.Stop()
+		return n, err
+	}
+
+	if n > 0 {
+		r.timer.Reset(r.timeout)
+	}
+
+	return n, nil
 }
 
 // validateDatasetURL exige HTTPS y un host dentro de allowlist. Se usa
