@@ -426,6 +426,20 @@ severidad baja y no afectan la corrección del algoritmo concurrente.
 | GAP-18 | `run_spin.sh`: `trap` de limpieza, verificación de `spin`/`gcc` y validación de argumentos | Ejecución en Docker y casos de error manuales (argumento no numérico, `spin` ausente) |
 | GAP-19 | `gofmt` y corrección del typo | `gofmt -l` sobre los archivos tocados |
 
+### Revisión crítica posterior de los GAPs de severidad media
+
+Como parte de la revisión final del TP, se contrastaron los cuatro GAPs de severidad media identificados por la IA con el estado actual del código y de la suite de pruebas.
+
+- **GAP-01 — Timeout de inactividad en la descarga:** se verificó que `dataset_download.go` incorpora `datasetIdleTimeout` y el lector `idleTimeoutReader`, que cancela la operación cuando el servidor deja de enviar datos durante el intervalo configurado. Además, `dataset_download_test.go` contiene una prueba específica para este escenario. Por ello, se mantiene el estado **Corregido**.
+
+- **GAP-02 — Propagación de errores y código de salida:** se comprobó que `runPipeline` y `runCleaning` retornan errores al llamador y que `main()` los reporta mediante `stderr` y finaliza con código distinto de cero mediante `os.Exit(1)`. Por ello, se mantiene el estado **Corregido**.
+
+- **GAP-03 — Escritura atómica del dataset limpio:** se verificó que la limpieza escribe primero en un archivo temporal `.part` y solo reemplaza la salida final mediante `os.Rename` cuando el procesamiento termina correctamente. Las pruebas comprueban tanto la eliminación del archivo temporal ante errores como la conservación de una salida previa. Por ello, se mantiene el estado **Corregido**.
+
+- **GAP-04 — Cobertura insuficiente de pruebas:** se comprobó la incorporación de pruebas para limpieza, preprocesamiento, escalamiento, regresión y ejecución del pipeline, además de casos de equivalencia con variables categóricas activas y diferentes cantidades de workers. Por ello, se mantiene el estado **Corregido**.
+
+La revisión confirma que los cuatro hallazgos de severidad media ya no permanecen abiertos en el estado actual del repositorio. No obstante, esta validación no implica que el software esté libre de defectos; únicamente confirma que las condiciones específicas señaladas originalmente por estos GAPs cuentan actualmente con una corrección y evidencia de prueba asociada.
+
 ### Verificación posterior a las correcciones
 
 | Comando | Resultado |
