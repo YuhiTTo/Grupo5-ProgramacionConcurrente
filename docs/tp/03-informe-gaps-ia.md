@@ -145,7 +145,7 @@ Aspectos revisados que son correctos y no constituyen GAPs:
 | GAP-16 | Rendimiento y memoria | Baja | `dataset.go:41`, `preprocessing.go:53`, `344`; `main.go:165-246` | El dataset limpio se recorre tres veces (conteo, esquema, carga) | Tiempo de arranque adicional con 2.1 M de filas | Fusionar conteo y esquema en una sola pasada | Pendiente |
 | GAP-17 | Rendimiento y memoria | Baja | `resource_profile.go:47-69` | El muestreador llama a `runtime.ReadMemStats` (detiene el mundo) cada 10 ms durante la corrida medida; el pico puede omitir picos más cortos | `elapsed_ms` de `resources.csv` queda perturbado (hipótesis; efecto no medido) y el pico es una cota inferior | Documentar que `elapsed_ms` no es comparable con el benchmark, o subir el período | Pendiente |
 | GAP-18 | Reproducibilidad | Baja | `promela/run_spin.sh:8-11`, `28-29`, `34`, `78`; `promela/run_spin.ps1:9-12`, `35`, `72`; `run_spin_mutants.sh:83`, `97`, `54-58` | `run_spin.sh` crea el directorio temporal sin `trap` (queda si falla), no valida que `spin`/`gcc` existan ni que los parámetros sean enteros; comentarios obsoletos ("NO están instalados"); `.ps1` usa `\` y `pan.exe` (solo Windows) y no hay versión PowerShell de los mutantes; el chequeo de mutantes no distingue el tipo de error | Residuos en `/tmp`, mensajes de error poco claros y reproducción menos portable | `trap 'rm -rf "$WORK_DIR"' EXIT` y `command -v` previo (como ya hace `run_spin_mutants.sh:40`); actualizar comentarios | Parcial (`21bf818`): `run_spin.sh` incorpora limpieza mediante `trap`, validación de argumentos y comprobación de `spin`/`gcc`; `run_spin.ps1` controla errores y limpia recursos, pero aún no replica la validación explícita de argumentos positivos ni la comprobación previa de dependencias, y no existe una versión PowerShell del script de mutantes |
-| GAP-19 | Calidad y mantenibilidad | Baja | `preprocessing.go:13-21`; `config.go:10`; repositorio sin `.github/workflows` | `PreprocessingSummary` no está formateado con `gofmt`; typo "quando" en un comentario; no hay integración continua que ejecute `go vet`, `go test -race` y `gofmt` | Deriva de estilo y regresiones no detectadas automáticamente | `gofmt -w`, corregir el typo y agregar un workflow de GitHub Actions | Parcial (`91fcea8`, `1142d86`): typo corregido, pero `preprocessing.go` aún es reportado por `gofmt -l` y CI continúa pendiente |
+| GAP-19 | Calidad y mantenibilidad | Baja | `preprocessing.go:13-21`; `config.go:10`; repositorio sin `.github/workflows` | `PreprocessingSummary` no está formateado con `gofmt`; typo "quando" en un comentario; no hay integración continua que ejecute `go vet`, `go test -race` y `gofmt` | Deriva de estilo y regresiones no detectadas automáticamente | `gofmt -w`, corregir el typo y agregar un workflow de GitHub Actions | Parcial (`91fcea8`, `1142d86`): `gofmt` y typo corregidos (verificado sobre el contenido versionado); CI pendiente |
 
 ## 5. Detalle por GAP
 
@@ -420,7 +420,7 @@ Después del análisis, el equipo corrigió los 4 GAPs de severidad media y apli
 | GAP-11 | Validación de columnas obligatorias y longitud de filas | Columna ausente y fila corta devuelven error en lugar de `panic` |
 | GAP-12 | Cierre de archivos con error comprobado; `defer pprof.StopCPUProfile()` | Prueba del helper `closeFile` |
 | GAP-18 | `run_spin.sh`: `trap` de limpieza, verificación de `spin`/`gcc` y validación de argumentos | Ejecución en Docker y casos de error manuales (argumento no numérico, `spin` ausente) |
-| GAP-19 | Corrección del typo y ajustes parciales de formato; `preprocessing.go` continúa pendiente de `gofmt` | `gofmt -l preprocessing.go` todavía reporta `preprocessing.go` |
+| GAP-19 | `gofmt` y corrección del typo; falta el workflow de CI | `git show HEAD:preprocessing.go \| gofmt -l` no reporta nada |
 
 ### Revisión crítica posterior de los GAPs de severidad media
 
@@ -448,7 +448,7 @@ Como segunda etapa de la revisión final, se contrastaron con el código actual 
 
 - **GAP-18 — Robustez de los scripts de Spin:** `run_spin.sh` valida argumentos, comprueba la disponibilidad de `spin` y `gcc`, limpia recursos temporales mediante `trap` y verifica explícitamente `errors: 0`. `run_spin.ps1` también controla errores de procesos nativos, verifica los resultados y elimina el directorio temporal mediante `try/finally`; sin embargo, no replica todavía la validación explícita de argumentos positivos ni la comprobación previa de dependencias. Por ello, se mantiene como **Parcialmente corregido**.
 
-- **GAP-19 — Formato y mantenibilidad:** se aplicaron correcciones de formato y del error tipográfico identificado previamente; sin embargo, la comprobación final mediante `gofmt -l preprocessing.go` todavía reporta `preprocessing.go`. Por ello, se mantiene como **Parcialmente corregido**.
+- **GAP-19 — Formato y mantenibilidad:** se aplicaron `gofmt` y la corrección del error tipográfico. Ejecutar `gofmt -l preprocessing.go` en la copia de trabajo de Windows reporta el archivo, pero es un falso positivo: Git convierte los finales de línea a CRLF al hacer checkout (ver la sección 2). Sobre el contenido versionado, `git show HEAD:preprocessing.go | gofmt -l` no reporta nada, y lo mismo ocurre con todos los archivos `.go`. Se mantiene como **Parcialmente corregido** solo porque falta el workflow de integración continua.
 
 La revisión posterior muestra que las mejoras aplicadas no eliminan automáticamente todos los hallazgos identificados por la IA. Tres de los cinco GAPs de severidad baja revisados cuentan con evidencia suficiente para considerarse corregidos, mientras que GAP-18 y GAP-19 conservan aspectos menores pendientes. Estos resultados permiten mantener en el informe una clasificación acorde con el estado real del repositorio.
 
@@ -460,5 +460,5 @@ La revisión posterior muestra que las mejoras aplicadas no eliminan automática
 | `go test -count=1 ./...` | `ok` |
 | `go test -race -count=1 ./...` (Docker, `golang:1.27`) | `ok`, sin carreras (evidencia en `results/race/`) |
 | `go run . -mode=quick` | Equivalencia secuencial/concurrente: OK |
-| `bash promela/run_spin.sh 2 4`, `3 4` y `4 4`; `bash promela/run_spin_mutants.sh` | Modelo correcto con `errors: 0` en las tres configuraciones; las 3 comprobaciones sobre los modelos mutantes detectaron correctamente los defectos introducidos con `errors: 1` |
+| `bash promela/run_spin.sh 2 4`, `3 4` y `4 4`; `bash promela/run_spin_mutants.sh` (Docker `debian:stable-slim`; salidas en `results/promela/w*_j4_*.txt` y `results/promela/mutants/`) | Modelo correcto con `errors: 0` en las tres configuraciones; las 3 comprobaciones sobre los modelos mutantes detectaron correctamente los defectos introducidos con `errors: 1` |
 
