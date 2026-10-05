@@ -47,8 +47,8 @@ render review, pptx render review, numbers cross-checked against `docs/` and
   orphan captions or headings.
 - T4: 14-slide deck (`Documentos/CC65-TP-202620-Grupo5-Exposicion.pptx`),
   rendered with LibreOffice and reviewed slide by slide.
-- Pending after merge: refresh Figs. 15/16 and the deck's slide 13 with the
-  final GitHub history.
+- Figs. 15/16 and deck slide 13: refreshed after merge (see T5). The commit
+  counts are a snapshot at that point; later commits make them grow.
 - T5: PR #19 (develop) and PR #20 (main). Then refreshed Figs. 15/16 and deck
   slide 13 with the final history (61/8/7/3); Littlepie4 identified as Lucero:
   PR #18 merged from the YuhiTTo account is signed with the Littlepie4 email.
