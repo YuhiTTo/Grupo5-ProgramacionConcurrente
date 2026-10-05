@@ -1,0 +1,114 @@
+== Mutante race (NUM_WORKERS=2 NUM_JOBS=4) ==
+ltl safe_update: [] ((! (updating)) || ((result_count==4)))
+ltl termination: <> (done)
+ltl mutex: [] ((in_update<=1))
+  the model contains 3 never claims: mutex, termination, safe_update
+  only one claim is used in a verification run
+  choose which one with ./pan -a -N name (defaults to -N safe_update)
+  or use e.g.: spin -search -ltl safe_update regression_workers_race.pml
+-- race / LTL: mutex --
+pan: ltl formula mutex
+pan:1: assertion violated  !( !((in_update<=1))) (at depth 213)
+pan: wrote regression_workers_race.pml.trail
+
+(Spin Version 6.5.2 -- 6 December 2019)
+Warning: Search not completed
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	+ (mutex)
+	assertion violations	+ (if within scope of claim)
+	acceptance   cycles 	+ (fairness disabled)
+	invalid end states	- (disabled by never claim)
+
+State-vector 72 byte, depth reached 236, errors: 1
+      565 states, stored
+      156 states, matched
+      721 transitions (= stored+matched)
+        9 atomic steps
+hash conflicts:         0 (resolved)
+
+Stats on memory usage (in Megabytes):
+    0.054	equivalent memory usage for states (stored*(State-vector + overhead))
+    0.281	actual memory usage for states
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  128.730	total actual memory usage
+
+
+
+pan: elapsed time 0 seconds
+OK: mutante detectado (errors: 1)
+-- race / LTL: safe_update --
+pan: ltl formula safe_update
+pan:1: assertion violated  !( !(( !(updating)||(result_count==4)))) (at depth 33)
+pan: wrote regression_workers_race.pml.trail
+
+(Spin Version 6.5.2 -- 6 December 2019)
+Warning: Search not completed
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	+ (safe_update)
+	assertion violations	+ (if within scope of claim)
+	acceptance   cycles 	+ (fairness disabled)
+	invalid end states	- (disabled by never claim)
+
+State-vector 72 byte, depth reached 33, errors: 1
+       13 states, stored
+        0 states, matched
+       13 transitions (= stored+matched)
+        9 atomic steps
+hash conflicts:         0 (resolved)
+
+Stats on memory usage (in Megabytes):
+    0.001	equivalent memory usage for states (stored*(State-vector + overhead))
+    0.282	actual memory usage for states
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  128.730	total actual memory usage
+
+
+
+pan: elapsed time 0 seconds
+OK: mutante detectado (errors: 1)
+== Mutante deadlock (NUM_WORKERS=2 NUM_JOBS=4) ==
+ltl safe_update: [] ((! (updating)) || ((result_count==4)))
+ltl termination: <> (done)
+ltl mutex: [] ((in_update<=1))
+  the model contains 3 never claims: mutex, termination, safe_update
+  only one claim is used in a verification run
+  choose which one with ./pan -a -N name (defaults to -N safe_update)
+  or use e.g.: spin -search -ltl safe_update regression_workers_deadlock.pml
+pan:1: invalid end state (at depth 106)
+pan: wrote regression_workers_deadlock.pml.trail
+
+(Spin Version 6.5.2 -- 6 December 2019)
+Warning: Search not completed
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	- (not selected)
+	assertion violations	+
+	cycle checks       	- (disabled by -DSAFETY)
+	invalid end states	+
+
+State-vector 64 byte, depth reached 107, errors: 1
+       99 states, stored
+        0 states, matched
+       99 transitions (= stored+matched)
+        9 atomic steps
+hash conflicts:         0 (resolved)
+
+Stats on memory usage (in Megabytes):
+    0.009	equivalent memory usage for states (stored*(State-vector + overhead))
+    0.282	actual memory usage for states
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  128.730	total actual memory usage
+
+
+
+pan: elapsed time 0 seconds
+OK: mutante detectado (errors: 1)
+Listo. Todos los mutantes fueron detectados. Resultados en /work/promela/../results/promela/mutants

@@ -1,0 +1,170 @@
+== Verificando NUM_WORKERS=3 NUM_JOBS=4 ==
+ltl safe_update: [] ((! (updating)) || ((result_count==4)))
+ltl termination: <> (done)
+ltl mutex: [] ((in_update<=1))
+  the model contains 3 never claims: mutex, termination, safe_update
+  only one claim is used in a verification run
+  choose which one with ./pan -a -N name (defaults to -N safe_update)
+  or use e.g.: spin -search -ltl safe_update /work/promela/regression_workers.pml
+
+(Spin Version 6.5.2 -- 6 December 2019)
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	- (not selected)
+	assertion violations	+
+	cycle checks       	- (disabled by -DSAFETY)
+	invalid end states	+
+
+State-vector 80 byte, depth reached 123, errors: 0
+   145563 states, stored
+    98941 states, matched
+   244504 transitions (= stored+matched)
+       12 atomic steps
+hash conflicts:       215 (resolved)
+
+Stats on memory usage (in Megabytes):
+   14.993	equivalent memory usage for states (stored*(State-vector + overhead))
+   10.246	actual memory usage for states (compression: 68.34%)
+         	state-vector as stored = 46 byte + 28 byte overhead
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  138.690	total actual memory usage
+
+
+unreached in proctype Worker
+	(0 of 15 states)
+unreached in init
+	(0 of 63 states)
+unreached in claim safe_update
+	_spin_nvr.tmp:3, state 6, "(!((!(updating)||(result_count==4))))"
+	_spin_nvr.tmp:3, state 6, "(1)"
+	_spin_nvr.tmp:8, state 10, "-end-"
+	(2 of 10 states)
+unreached in claim termination
+	_spin_nvr.tmp:13, state 3, "(!(done))"
+	_spin_nvr.tmp:15, state 6, "-end-"
+	(2 of 6 states)
+unreached in claim mutex
+	_spin_nvr.tmp:19, state 6, "(!((in_update<=1)))"
+	_spin_nvr.tmp:19, state 6, "(1)"
+	_spin_nvr.tmp:24, state 10, "-end-"
+	(2 of 10 states)
+
+pan: elapsed time 0.15 seconds
+pan: rate    970420 states/second
+-- LTL: safe_update --
+pan: ltl formula safe_update
+
+(Spin Version 6.5.2 -- 6 December 2019)
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	+ (safe_update)
+	assertion violations	+ (if within scope of claim)
+	acceptance   cycles 	+ (fairness disabled)
+	invalid end states	- (disabled by never claim)
+
+State-vector 88 byte, depth reached 235, errors: 0
+   145563 states, stored
+    98942 states, matched
+   244505 transitions (= stored+matched)
+       12 atomic steps
+hash conflicts:       246 (resolved)
+
+Stats on memory usage (in Megabytes):
+   16.103	equivalent memory usage for states (stored*(State-vector + overhead))
+   12.298	actual memory usage for states (compression: 76.37%)
+         	state-vector as stored = 61 byte + 28 byte overhead
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  140.741	total actual memory usage
+
+
+unreached in proctype Worker
+	(0 of 15 states)
+unreached in init
+	(0 of 63 states)
+unreached in claim safe_update
+	_spin_nvr.tmp:8, state 10, "-end-"
+	(1 of 10 states)
+
+pan: elapsed time 0.19 seconds
+pan: rate 766121.05 states/second
+-- LTL: termination --
+pan: ltl formula termination
+
+(Spin Version 6.5.2 -- 6 December 2019)
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	+ (termination)
+	assertion violations	+ (if within scope of claim)
+	acceptance   cycles 	+ (fairness disabled)
+	invalid end states	- (disabled by never claim)
+
+State-vector 88 byte, depth reached 232, errors: 0
+   145218 states, stored (290436 visited)
+   341865 states, matched
+   632301 transitions (= visited+matched)
+       24 atomic steps
+hash conflicts:      1209 (resolved)
+
+Stats on memory usage (in Megabytes):
+   16.065	equivalent memory usage for states (stored*(State-vector + overhead))
+   12.201	actual memory usage for states (compression: 75.95%)
+         	state-vector as stored = 60 byte + 28 byte overhead
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  140.644	total actual memory usage
+
+
+unreached in proctype Worker
+	(0 of 15 states)
+unreached in init
+	(0 of 63 states)
+unreached in claim termination
+	_spin_nvr.tmp:15, state 6, "-end-"
+	(1 of 6 states)
+
+pan: elapsed time 0.38 seconds
+pan: rate 764305.26 states/second
+-- LTL: mutex --
+pan: ltl formula mutex
+
+(Spin Version 6.5.2 -- 6 December 2019)
+	+ Partial Order Reduction
+
+Full statespace search for:
+	never claim         	+ (mutex)
+	assertion violations	+ (if within scope of claim)
+	acceptance   cycles 	+ (fairness disabled)
+	invalid end states	- (disabled by never claim)
+
+State-vector 88 byte, depth reached 235, errors: 0
+   145563 states, stored
+    98942 states, matched
+   244505 transitions (= stored+matched)
+       12 atomic steps
+hash conflicts:       264 (resolved)
+
+Stats on memory usage (in Megabytes):
+   16.103	equivalent memory usage for states (stored*(State-vector + overhead))
+   12.298	actual memory usage for states (compression: 76.37%)
+         	state-vector as stored = 61 byte + 28 byte overhead
+  128.000	memory used for hash table (-w24)
+    0.534	memory used for DFS stack (-m10000)
+  140.741	total actual memory usage
+
+
+unreached in proctype Worker
+	(0 of 15 states)
+unreached in init
+	(0 of 63 states)
+unreached in claim mutex
+	_spin_nvr.tmp:24, state 10, "-end-"
+	(1 of 10 states)
+
+pan: elapsed time 0.2 seconds
+pan: rate    727815 states/second
+Listo. Resultados en /work/promela/../results/promela
