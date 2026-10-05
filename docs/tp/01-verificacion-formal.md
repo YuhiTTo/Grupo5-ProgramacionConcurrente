@@ -10,11 +10,14 @@ y su mapeo detallado a Go están en
 
 | Propiedad | Cómo se verifica en Spin | Qué garantiza en Go |
 |---|---|---|
-| **Ausencia de deadlock** | Corrida de seguridad (`gcc -DSAFETY -DNOCLAIM`, `./pan`): Spin explora todos los entrelazados y reporta cualquier *invalid end state*, es decir, un estado final en el que algún proceso quedó bloqueado | Ningún `gradientWorker` queda esperando para siempre en `jobs`, y `trainConcurrent` no se bloquea en `wg.Wait()` |
+| **Ausencia de deadlock** | Corrida de seguridad (`gcc -DSAFETY -DNOCLAIM`, `./pan`): Spin explora exhaustivamente los estados e intercalaciones posibles del modelo acotado y reporta cualquier *invalid end state*, incluyendo situaciones en las que algún proceso queda bloqueado sin poder finalizar | Ningún `gradientWorker` queda esperando para siempre en `jobs`, y `trainConcurrent` no se bloquea en `wg.Wait()` |
 | **Exclusión mutua** | LTL `mutex`: `[] (in_update <= 1)` | A lo sumo un flujo escribe `model.Weights`/`model.Bias` a la vez; por eso no hace falta `sync.Mutex` |
 | Actualización segura | LTL `safe_update`: `[] (updating -> result_count == NUM_JOBS)` | Los pesos solo se actualizan después de reunir todos los gradientes parciales (`wg.Wait()`) |
 | Terminación | LTL `termination`: `<> done` (con búsqueda de ciclos de aceptación, `-a`) | La época siempre termina; no hay livelock |
 | Integridad del trabajo | Aserciones: cada job se procesa una sola vez y cada resultado se recibe una sola vez | El particionamiento y la reducción por `JobID` no pierden ni duplican trabajo |
+
+**Distinción entre seguridad y propiedades LTL.** La ausencia de deadlocks se verifica específicamente mediante la corrida de seguridad compilada con `-DSAFETY -DNOCLAIM`, en la cual Spin mantiene habilitada la detección de `invalid end states`. Las propiedades `mutex`, `safe_update` y `termination` se verifican posteriormente como fórmulas LTL independientes. Durante estas corridas Spin reporta `invalid end states - (disabled by never claim)`, por lo que no se utilizan como evidencia directa de ausencia de deadlocks. Esta separación permite diferenciar la comprobación de estados bloqueados de las propiedades temporales del modelo.
+
 
 ## Resultados del modelo correcto
 
@@ -27,10 +30,15 @@ y su mapeo detallado a Go están en
 | 3 / 4 | 145,563 | 0 errores | 0 errores | 0 errores | 0 errores |
 | 4 / 4 | 1,080,202 | 0 errores | 0 errores | 0 errores | 0 errores |
 
-La variante 4/8 superó los 34 millones de estados y 3.2 GB de memoria sin
-terminar (explosión del espacio de estados). Por eso la verificación
-exhaustiva se hace con N pequeño, que alcanza para cubrir todos los
-entrelazados de la lógica de sincronización.
+En la revalidación final se observó un crecimiento acelerado del espacio de estados al incrementar el número de workers, manteniendo 4 jobs: 12,358 estados almacenados con 2 workers, 145,563 con 3 workers y 1,080,202 con 4 workers. Asimismo, una ejecución previa de la variante 4/8 superó los 34 millones de estados y 3.2 GB de memoria sin finalizar. Este comportamiento evidencia la explosión del espacio de estados característica de la verificación exhaustiva y justifica el uso de configuraciones reducidas, en las cuales Spin puede explorar exhaustivamente las posibles intercalaciones de la lógica de sincronización modelada.
+
+### Revalidación final realizada para el TP
+
+Como parte de la revisión final de la verificación formal, se volvieron a ejecutar las configuraciones 2 workers / 4 jobs, 3 workers / 4 jobs y 4 workers / 4 jobs mediante `promela/run_spin.sh`. En las tres configuraciones, la corrida de seguridad terminó con `errors: 0`, sin estados finales inválidos, y las propiedades LTL `mutex`, `safe_update` y `termination` también fueron verificadas sin errores.
+
+Adicionalmente, se ejecutó `promela/run_spin_mutants.sh` para comprobar que el procedimiento de verificación detectara defectos introducidos deliberadamente. Spin identificó correctamente una violación de exclusión mutua, una actualización prematura y un deadlock, todos con `errors: 1`.
+
+Esta revalidación permite comprobar tanto el comportamiento esperado del modelo correcto como la capacidad del procedimiento de verificación para detectar errores de sincronización.
 
 ## Los mutantes: la verificación detecta errores reales
 
@@ -49,10 +57,7 @@ Cada corrida guarda la reproducción del contraejemplo (`spin -t -p`) en
 `results/promela/mutants/<mutante>_<chequeo>_trail.txt`, que muestra paso a
 paso el entrelazado que rompe la propiedad.
 
-Conclusión: el mismo procedimiento que **rechaza** los mutantes **acepta** el
-modelo correcto, así que el resultado `0 errores` del modelo correcto es
-evidencia real de que el diseño no tiene deadlocks y respeta la exclusión
-mutua.
+Conclusión: el mismo procedimiento que **rechaza** los mutantes **acepta** el modelo correcto. Por tanto, los resultados `0 errores` constituyen evidencia formal de que, dentro de la abstracción Promela y de las configuraciones acotadas verificadas, la lógica de sincronización no presenta deadlocks, respeta la exclusión mutua y realiza la actualización únicamente después de reunir los resultados parciales. Esta verificación se complementa con el detector de carreras de Go sobre la implementación real.
 
 ## Evidencia complementaria en Go
 

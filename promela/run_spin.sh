@@ -79,10 +79,14 @@ gcc -DSAFETY -DNOCLAIM -o pan pan.c
 ./pan | tee "$OUT_DIR/${PREFIX}_safety.txt"
 require_no_errors "$OUT_DIR/${PREFIX}_safety.txt"
 
-# 3) Compilar (sin -DSAFETY) y correr cada propiedad LTL
-#    por separado con -N <nombre>. -a mantiene la búsqueda
-#    de invalid end states también durante la verificación
-#    de la fórmula LTL.
+# 3) Compilar (sin -DSAFETY) y verificar cada propiedad LTL
+#    por separado con -N <nombre>. La opción -a habilita la
+#    búsqueda de ciclos de aceptación de la never claim
+#    seleccionada. Durante estas corridas LTL, Spin deshabilita
+#    la detección de invalid end states por la presencia de la
+#    never claim; por ello, la ausencia de deadlocks se verifica
+#    específicamente en la corrida SAFETY anterior.
+
 gcc -o pan pan.c
 
 for ltl_name in safe_update termination mutex; do
