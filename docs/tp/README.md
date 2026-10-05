@@ -11,7 +11,7 @@ relaciona cada punto del enunciado con su evidencia en el repositorio.
 | s | 4 | Análisis con conclusiones y recomendaciones del alumno | [`04-conclusiones.md`](04-conclusiones.md) | Borrador: **cada integrante debe reescribirlo con su opinión** |
 | t | — | Referencias bibliográficas (APA) | Informe Word del TP, sección de referencias | Listo |
 | u | — | Código público en GitHub con historial de commits en la rama principal | `main` del repositorio | Listo; no editar `main` después de la fecha de entrega (−10 pts) |
-| v | 5 | Video de máximo 6 minutos con la participación de todos | Guion en [`05-guion-video.md`](05-guion-video.md) | **Pendiente: grabar y pegar el enlace en el anexo del informe** (−5 pts si falta) |
+| v | 5 | Video de máximo 6 minutos con la participación de todos | Guion en [`05-guion-video.md`](05-guion-video.md) y presentación `Documentos/CC65-TP-202620-Grupo5-Exposicion.pptx` | **Pendiente: grabar y pegar el enlace en el anexo del informe** (−5 pts si falta) |
 | gitflow | 2 | Historial gitflow con la participación de todos los integrantes | `git shortlog -sne main` (Jhamil 47, José 5, Lucero 5; `Littlepie4` 2) | Listo |
 
 ## Checklist de entrega (en este orden)
