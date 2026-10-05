@@ -20,6 +20,10 @@ Total: 6:00. Conviene apuntar a 5:40 para tener margen.
 
 ## Preparación antes de grabar
 
+La presentación para proyectar durante el video está en
+`Documentos/CC65-TP-202620-Grupo5-Exposicion.pptx` (14 diapositivas en el
+orden de los bloques; cada diapositiva tiene en sus notas el texto sugerido).
+
 1. Clonar o actualizar el repositorio (`git pull` en `main`) y descargar el
    dataset una vez: `go run . -mode=download`.
 2. Grabar aparte la salida de `go run . -mode=quick` (tarda casi un minuto) para
