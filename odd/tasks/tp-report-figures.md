@@ -29,7 +29,7 @@ chart values cross-checked against `docs/pc2/04`, `docs/pc2/05`, `docs/tp/03`.
 - [x] T4 — Insert figures into the three Word files, renumber figures, update
       sections 6.4, 9, 10, 11.3, 12, 14, 15, rebuild TOC, export PDF.
       Route: inline (script already proven in tp-delivery).
-- [ ] T5 — Commit, PR to develop and main.
+- [x] T5 — Commit, PR to develop and main.
 
 ## Progress
 
@@ -41,3 +41,5 @@ chart values cross-checked against `docs/pc2/04`, `docs/pc2/05`, `docs/tp/03`.
   linked to the account), so it was not used as a figure.
 - T4: 9 images per docx, figures 1–20 consecutive, captions keepNext, 23 level-2
   headings (6.1–11.3) made bold, TOC updated, 58-page PDF; validate.py PASSED x3.
+- T5: PR #14 (develop) and PR #15 (main). Follow-up: Figure 16 refreshed with
+  the shortlog after PR #13 landed on main (SeuNg720p 8 commits).
