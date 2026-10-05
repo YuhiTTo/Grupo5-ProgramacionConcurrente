@@ -62,7 +62,7 @@ Comandos ejecutados y resultados:
 | `go test -count=1 ./...` | Local (Windows) | `ok  github.com/YuhiTTo/Grupo5-ProgramacionConcurrente  1.728s` |
 | `go test -race -count=1 ./...` | Docker `golang:1.27` (Go 1.27.1 linux/amd64, `CGO_ENABLED=1`), 2026-10-03 | `ok ... 1.448s`. `equivalence_test.go` ejercita `trainConcurrent` con 1, 2, 4 y 8 workers, por lo que el detector cubrió el worker pool |
 | `gofmt -l .` | Local (Windows) | Lista todos los archivos porque la copia de trabajo usa fin de línea CRLF (el índice de git es LF). Normalizando con `tr -d '\r'`, solo `preprocessing.go` queda sin formatear (GAP-19) |
-| Spin (`promela/run_spin.sh`, `run_spin_mutants.sh`) | Evidencia previa del equipo en `results/promela/` y `results/promela/mutants/` | `safe_update`, `termination` y `mutex` con `errors: 0` para 2/4, 3/4 y 4/4 workers/jobs; los tres mutantes (un worker entrando a la sección de actualización de pesos, un STOP menos que workers) se detectan con `errors: 1` |
+| Spin (`promela/run_spin.sh`, `run_spin_mutants.sh`) | Evidencia previa del equipo en `results/promela/` y `results/promela/mutants/` | `safe_update`, `termination` y `mutex` con `errors: 0` para 2/4, 3/4 y 4/4 workers/jobs; los modelos mutantes produjeron `errors: 1` en las tres comprobaciones realizadas |
 
 Las pruebas pasan: el análisis no se basa en suposiciones sobre un estado
 roto del repositorio. Los comandos de Spin no se volvieron a ejecutar en este
@@ -144,8 +144,8 @@ Aspectos revisados que son correctos y no constituyen GAPs:
 | GAP-15 | Calidad y mantenibilidad | Baja | `benchmark.go:28-92` y `94-162`; `resource_profile.go:112-251`; `sequential.go:63-79` y `concurrent.go:191-209`; `main.go:395-596` | Código duplicado entre variantes secuencial/concurrente (benchmark, perfil de recursos, actualización de pesos) y funciones largas en `main.go` (857 líneas) | Cambios deben replicarse en varios sitios | Extraer funciones comunes (`applyGradient`, medición genérica recibiendo `func()`) | Pendiente |
 | GAP-16 | Rendimiento y memoria | Baja | `dataset.go:41`, `preprocessing.go:53`, `344`; `main.go:165-246` | El dataset limpio se recorre tres veces (conteo, esquema, carga) | Tiempo de arranque adicional con 2.1 M de filas | Fusionar conteo y esquema en una sola pasada | Pendiente |
 | GAP-17 | Rendimiento y memoria | Baja | `resource_profile.go:47-69` | El muestreador llama a `runtime.ReadMemStats` (detiene el mundo) cada 10 ms durante la corrida medida; el pico puede omitir picos más cortos | `elapsed_ms` de `resources.csv` queda perturbado (hipótesis; efecto no medido) y el pico es una cota inferior | Documentar que `elapsed_ms` no es comparable con el benchmark, o subir el período | Pendiente |
-| GAP-18 | Reproducibilidad | Baja | `promela/run_spin.sh:8-11`, `28-29`, `34`, `78`; `promela/run_spin.ps1:9-12`, `35`, `72`; `run_spin_mutants.sh:83`, `97`, `54-58` | `run_spin.sh` crea el directorio temporal sin `trap` (queda si falla), no valida que `spin`/`gcc` existan ni que los parámetros sean enteros; comentarios obsoletos ("NO están instalados"); `.ps1` usa `\` y `pan.exe` (solo Windows) y no hay versión PowerShell de los mutantes; el chequeo de mutantes no distingue el tipo de error | Residuos en `/tmp`, mensajes de error poco claros y reproducción menos portable | `trap 'rm -rf "$WORK_DIR"' EXIT` y `command -v` previo (como ya hace `run_spin_mutants.sh:40`); actualizar comentarios | Parcial (`21bf818`): `trap`, validación y comentarios; sin versión PowerShell de los mutantes |
-| GAP-19 | Calidad y mantenibilidad | Baja | `preprocessing.go:13-21`; `config.go:10`; repositorio sin `.github/workflows` | `PreprocessingSummary` no está formateado con `gofmt`; typo "quando" en un comentario; no hay integración continua que ejecute `go vet`, `go test -race` y `gofmt` | Deriva de estilo y regresiones no detectadas automáticamente | `gofmt -w`, corregir el typo y agregar un workflow de GitHub Actions | Parcial (`91fcea8`, `1142d86`): `gofmt` y typo; CI pendiente |
+| GAP-18 | Reproducibilidad | Baja | `promela/run_spin.sh:8-11`, `28-29`, `34`, `78`; `promela/run_spin.ps1:9-12`, `35`, `72`; `run_spin_mutants.sh:83`, `97`, `54-58` | `run_spin.sh` crea el directorio temporal sin `trap` (queda si falla), no valida que `spin`/`gcc` existan ni que los parámetros sean enteros; comentarios obsoletos ("NO están instalados"); `.ps1` usa `\` y `pan.exe` (solo Windows) y no hay versión PowerShell de los mutantes; el chequeo de mutantes no distingue el tipo de error | Residuos en `/tmp`, mensajes de error poco claros y reproducción menos portable | `trap 'rm -rf "$WORK_DIR"' EXIT` y `command -v` previo (como ya hace `run_spin_mutants.sh:40`); actualizar comentarios | Parcial (`21bf818`): `run_spin.sh` incorpora limpieza mediante `trap`, validación de argumentos y comprobación de `spin`/`gcc`; `run_spin.ps1` controla errores y limpia recursos, pero aún no replica la validación explícita de argumentos positivos ni la comprobación previa de dependencias, y no existe una versión PowerShell del script de mutantes |
+| GAP-19 | Calidad y mantenibilidad | Baja | `preprocessing.go:13-21`; `config.go:10`; repositorio sin `.github/workflows` | `PreprocessingSummary` no está formateado con `gofmt`; typo "quando" en un comentario; no hay integración continua que ejecute `go vet`, `go test -race` y `gofmt` | Deriva de estilo y regresiones no detectadas automáticamente | `gofmt -w`, corregir el typo y agregar un workflow de GitHub Actions | Parcial (`91fcea8`, `1142d86`): typo corregido, pero `preprocessing.go` aún es reportado por `gofmt -l` y CI continúa pendiente |
 
 ## 5. Detalle por GAP
 
@@ -408,11 +408,7 @@ confianza en el pipeline de datos, no el núcleo concurrente.
 
 ## 8. Corrección de los GAPs
 
-Después del análisis, el equipo corrigió los 4 GAPs de severidad media y 5 de
-severidad baja, aplicando TDD: para cada cambio de comportamiento se escribió
-primero una prueba que fallaba y luego la corrección. Los GAPs restantes
-(06, 07, 08, 09, 10, 13, 14, 15, 16 y 17) quedan como mejoras futuras: son de
-severidad baja y no afectan la corrección del algoritmo concurrente.
+Después del análisis, el equipo corrigió los 4 GAPs de severidad media y aplicó mejoras sobre 5 GAPs de severidad baja. La revisión posterior confirmó que GAP-05, GAP-11 y GAP-12 se encuentran corregidos, mientras que GAP-18 y GAP-19 permanecen parcialmente corregidos. Los GAPs restantes (06, 07, 08, 09, 10, 13, 14, 15, 16 y 17) quedan como mejoras futuras: son de severidad baja y no invalidan las propiedades de concurrencia verificadas para el Worker Pool.
 
 | GAP | Corrección | Prueba que la respalda |
 |---|---|---|
@@ -424,7 +420,37 @@ severidad baja y no afectan la corrección del algoritmo concurrente.
 | GAP-11 | Validación de columnas obligatorias y longitud de filas | Columna ausente y fila corta devuelven error en lugar de `panic` |
 | GAP-12 | Cierre de archivos con error comprobado; `defer pprof.StopCPUProfile()` | Prueba del helper `closeFile` |
 | GAP-18 | `run_spin.sh`: `trap` de limpieza, verificación de `spin`/`gcc` y validación de argumentos | Ejecución en Docker y casos de error manuales (argumento no numérico, `spin` ausente) |
-| GAP-19 | `gofmt` y corrección del typo | `gofmt -l` sobre los archivos tocados |
+| GAP-19 | Corrección del typo y ajustes parciales de formato; `preprocessing.go` continúa pendiente de `gofmt` | `gofmt -l preprocessing.go` todavía reporta `preprocessing.go` |
+
+### Revisión crítica posterior de los GAPs de severidad media
+
+Como parte de la revisión final del TP, se contrastaron los cuatro GAPs de severidad media identificados por la IA con el estado actual del código y de la suite de pruebas.
+
+- **GAP-01 — Timeout de inactividad en la descarga:** se verificó que `dataset_download.go` incorpora `datasetIdleTimeout` y el lector `idleTimeoutReader`, que cancela la operación cuando el servidor deja de enviar datos durante el intervalo configurado. Además, `dataset_download_test.go` contiene una prueba específica para este escenario. Por ello, se mantiene el estado **Corregido**.
+
+- **GAP-02 — Propagación de errores y código de salida:** se comprobó que `runPipeline` y `runCleaning` retornan errores al llamador y que `main()` los reporta mediante `stderr` y finaliza con código distinto de cero mediante `os.Exit(1)`. Por ello, se mantiene el estado **Corregido**.
+
+- **GAP-03 — Escritura atómica del dataset limpio:** se verificó que la limpieza escribe primero en un archivo temporal `.part` y solo reemplaza la salida final mediante `os.Rename` cuando el procesamiento termina correctamente. Las pruebas comprueban tanto la eliminación del archivo temporal ante errores como la conservación de una salida previa. Por ello, se mantiene el estado **Corregido**.
+
+- **GAP-04 — Cobertura insuficiente de pruebas:** se comprobó la incorporación de pruebas para limpieza, preprocesamiento, escalamiento, regresión y ejecución del pipeline, además de casos de equivalencia con variables categóricas activas y diferentes cantidades de workers. Por ello, se mantiene el estado **Corregido**.
+
+La revisión confirma que los cuatro hallazgos de severidad media ya no permanecen abiertos en el estado actual del repositorio. No obstante, esta validación no implica que el software esté libre de defectos; únicamente confirma que las condiciones específicas señaladas originalmente por estos GAPs cuentan actualmente con una corrección y evidencia de prueba asociada.
+
+### Revisión de GAPs de severidad baja y estado residual
+
+Como segunda etapa de la revisión final, se contrastaron con el código actual los cinco GAPs de severidad baja sobre los que el equipo había aplicado correcciones o mejoras.
+
+- **GAP-05 — Invariante del Worker Pool:** se verificó que `concurrent.go` documenta explícitamente la relación `actualJobCount <= jobCount` y explica su dependencia del cálculo de `chunkSize`. Además, `equivalence_test.go` incorpora casos borde con tamaños no divisibles, menos muestras que `workers × 4` y más workers que muestras. Por ello, se considera **Corregido** para la implementación actual.
+
+- **GAP-11 — Validación de estructura del dataset:** se comprobó la validación de columnas obligatorias y de la longitud mínima de las filas antes de su procesamiento. Asimismo, existen pruebas específicas para columnas ausentes y filas incompletas. Por ello, se considera **Corregido**.
+
+- **GAP-12 — Manejo de errores de cierre y perfilado de CPU:** las funciones de reporte utilizan `closeFile` para propagar errores de `Close`, comportamiento que cuenta con pruebas específicas. El perfilado de CPU incorpora limpieza diferida mediante `defer pprof.StopCPUProfile()` y comprueba explícitamente el cierre del archivo en la ruta normal. Por ello, se considera **Corregido**, aunque se mantiene como observación menor la redundancia entre la limpieza explícita y diferida.
+
+- **GAP-18 — Robustez de los scripts de Spin:** `run_spin.sh` valida argumentos, comprueba la disponibilidad de `spin` y `gcc`, limpia recursos temporales mediante `trap` y verifica explícitamente `errors: 0`. `run_spin.ps1` también controla errores de procesos nativos, verifica los resultados y elimina el directorio temporal mediante `try/finally`; sin embargo, no replica todavía la validación explícita de argumentos positivos ni la comprobación previa de dependencias. Por ello, se mantiene como **Parcialmente corregido**.
+
+- **GAP-19 — Formato y mantenibilidad:** se aplicaron correcciones de formato y del error tipográfico identificado previamente; sin embargo, la comprobación final mediante `gofmt -l preprocessing.go` todavía reporta `preprocessing.go`. Por ello, se mantiene como **Parcialmente corregido**.
+
+La revisión posterior muestra que las mejoras aplicadas no eliminan automáticamente todos los hallazgos identificados por la IA. Tres de los cinco GAPs de severidad baja revisados cuentan con evidencia suficiente para considerarse corregidos, mientras que GAP-18 y GAP-19 conservan aspectos menores pendientes. Estos resultados permiten mantener en el informe una clasificación acorde con el estado real del repositorio.
 
 ### Verificación posterior a las correcciones
 
@@ -434,5 +460,5 @@ severidad baja y no afectan la corrección del algoritmo concurrente.
 | `go test -count=1 ./...` | `ok` |
 | `go test -race -count=1 ./...` (Docker, `golang:1.27`) | `ok`, sin carreras (evidencia en `results/race/`) |
 | `go run . -mode=quick` | Equivalencia secuencial/concurrente: OK |
-| `bash promela/run_spin.sh 2 4` y `run_spin_mutants.sh` (Docker) | Modelo correcto sin errores; los 3 mutantes detectados |
+| `bash promela/run_spin.sh 2 4`, `3 4` y `4 4`; `bash promela/run_spin_mutants.sh` | Modelo correcto con `errors: 0` en las tres configuraciones; las 3 comprobaciones sobre los modelos mutantes detectaron correctamente los defectos introducidos con `errors: 1` |
 
