@@ -460,5 +460,5 @@ La revisión posterior muestra que las mejoras aplicadas no eliminan automática
 | `go test -count=1 ./...` | `ok` |
 | `go test -race -count=1 ./...` (Docker, `golang:1.27`) | `ok`, sin carreras (evidencia en `results/race/`) |
 | `go run . -mode=quick` | Equivalencia secuencial/concurrente: OK |
-| `bash promela/run_spin.sh 2 4`, `3 4` y `4 4`; `bash promela/run_spin_mutants.sh` | Modelo correcto con `errors: 0` en las tres configuraciones; las 3 comprobaciones sobre los modelos mutantes detectaron correctamente los defectos introducidos con `errors: 1` |
+| `bash promela/run_spin.sh 2 4`, `3 4` y `4 4`; `bash promela/run_spin_mutants.sh` (Docker `debian:stable-slim`; salidas en `results/promela/w*_j4_*.txt` y `results/promela/mutants/`) | Modelo correcto con `errors: 0` en las tres configuraciones; las 3 comprobaciones sobre los modelos mutantes detectaron correctamente los defectos introducidos con `errors: 1` |
 
